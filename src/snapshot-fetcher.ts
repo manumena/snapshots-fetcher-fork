@@ -4,12 +4,23 @@ import * as path from 'path'
 import { getCatalystSnapshot, getEntityById, saveContentFileToDisk } from './client'
 import { checkFileExists, sleep } from './utils'
 import PQueue from 'p-queue'
+import { hash } from 'eth-crypto'
 
 const downloadJobQueue = new PQueue({
   concurrency: 10,
   autoStart: true,
   timeout: 60000,
 })
+const downloadFileJobsMap = new Map<string /* path */, DownloadContentFileJob>()
+const MAX_DOWNLOAD_RETRIES = 10
+const MAX_DOWNLOAD_RETRIES_WAIT_TIME = 1000
+
+type DownloadContentFileJob = {
+  servers: Set<string>
+  future: IFuture<any>
+  retries: number
+}
+
 
 export async function* getDeployedEntities(servers: string[]) {
   const allHashes: Map<string, string[]> = new Map()
@@ -83,14 +94,7 @@ async function downloadContentFromEntity(
   await Promise.all(contents)
 }
 
-type DownloadContentFileJob = {
-  servers: Set<string>
-  future: IFuture<any>
-  retries: number
-}
-const downloadFileJobsMap = new Map<string /* path */, DownloadContentFileJob>()
-const MAX_DOWNLOAD_RETRIES = 10
-const MAX_DOWNLOAD_RETRIES_WAIT_TIME = 1000
+const mapForTesting: Map<string, number> = new Map()
 
 /**
  * Downloads a content file, reuses jobs if the file is already scheduled to be downloaded or it is
@@ -123,7 +127,12 @@ async function downloadFileWithRetries(
           // TODO: round robin servers when fails
           const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
 
+          if (mapForTesting.has(hashToDownload)) {
+            throw new Error("CHAU" )
+          }
+          mapForTesting.set(hashToDownload, 1)
           await downloadContentFile(hashToDownload, finalFileName, serverToUse)
+          mapForTesting.delete(hashToDownload)
 
           job.future.resolve(hashToDownload)
         } catch (e: any) {
@@ -148,9 +157,7 @@ async function downloadFileWithRetries(
 async function downloadContentFile(hash: string, finalFileName: string, serverToUse: string) {
   // download all entitie's files (if missing)
   if (!(await checkFileExists(finalFileName))) {
-    console.time(finalFileName)
     await saveContentFileToDisk(serverToUse, hash, finalFileName)
-    console.timeEnd(finalFileName)
   }
 }
 

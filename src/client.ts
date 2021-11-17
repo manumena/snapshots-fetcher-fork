@@ -26,6 +26,6 @@ export async function saveContentFileToDisk(server: string, hash: string, dest: 
   if (Math.random() > 0.8) throw new Error('SYNTHETIC NETWORK ERROR')
 
   await saveToDisk(url.toString(), dest)
-  // Check Hash or throw
+  // TODO: Check Hash or throw
   return
 }

@@ -38,10 +38,21 @@ async function downloadEntities(options: DownloadEntitiesOptions) {
   for await (const { entityId, servers } of getDeployedEntities(options.catalystServers)) {
     if (await isEntityPresentLocally(entityId)) continue
 
-    downloadJobQueue.add(async () => {
-      const entityData = await downloadEntity(entityId, servers, serverMapLRU, downloadsFolder)
-      await options.deployAction(entityData)
-    })
+
+    function scheduleJob() {
+      downloadJobQueue.add(async () => {
+          try {
+            const entityData = await downloadEntity(entityId, servers, serverMapLRU, downloadsFolder)
+            await options.deployAction(entityData)
+          } catch {
+            // TODO: Cancel job when fails forever
+            scheduleJob()
+          }
+      })
+    }
+
+    scheduleJob()
+
   }
 
   await downloadJobQueue.onIdle()
