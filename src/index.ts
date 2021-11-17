@@ -1,7 +1,8 @@
 import { CatalystClient } from 'dcl-catalyst-client'
 import * as fs from 'fs'
+import * as https from 'https'
+import * as path from 'path'
 
-// const productiveServers = []
 const productiveServers = [
   'https://peer.decentraland.org', // DCL
   'https://peer-ec1.decentraland.org', // DCL - US East
@@ -15,19 +16,13 @@ const productiveServers = [
   'https://peer.uadevops.com', // SFox
   'https://peer.dclnodes.io', // DSM
 ]
+const downloadsFolder = path.resolve('downloads')
 
-// const snapshotsResponse = await fetch(
-//   server + '/content/snapshot/wearables'
-// );
-// const snapshotJson = await snapshotsResponse.json();
-// const entityHash = snapshotJson.hash;
-// const client = new CatalystClient({ catalystUrl });
-// const content = await client.downloadContent(entityHash, {
-//   attempts: 3,
-//   waitTime: '0.5s',
-// });
-// const s = fs.createWriteStream('./wearables_peer_2.json');
-// await client.pipeContent(entityHash, s);
+export type SnapshotData = [EntityHash, Pointers][]
+export type Pointer = string
+export type Pointers = Pointer[]
+export type EntityHash = string
+export type Server = string
 
 async function* getDeployedEntities() {
   const allHashes: Map<string, string[]> = new Map()
@@ -75,6 +70,7 @@ async function getEntityById(entityId: string, server: string) {
   return fetchJson(url.toString())
 }
 
+
 async function downloadEntityIfMissing(
   entityId: string,
   presentInServers: string[],
@@ -91,45 +87,61 @@ async function downloadEntityIfMissing(
 
   const entityData = await getEntityById(entityId, serverToUse)
 
-  console.log(entityData)
 
-  // const s = fs.createWriteStream(`./content/${hash}`);
-  // await client.pipeContent(hash, s);
+  const contents = entityData[0].content
 
-  // downlaod all entitie's files (if missing)
+  for (const {hash} of contents) {
+    // download all entitie's files (if missing)
+    const fileName = path.join(downloadsFolder, hash)
+    if (! await checkFileExists(fileName)) {
+      console.time(fileName)
+      await saveContentFileToDisk(serverToUse, hash, fileName)
+      console.timeEnd(fileName)
+    }
+  }
+
 
   // mark local entity as present
 }
+
+
+async function checkFileExists(file: string): Promise<boolean> {
+  return fs.promises
+    .access(file, fs.constants.F_OK)
+    .then(() => true)
+    .catch(() => false)
+}
+
+async function saveContentFileToDisk(server: string, hash: string, dest: string) {
+  const url = new URL(`/content/contents/${hash}`, server)
+  await saveToDisk(url.toString(), dest)
+  // Check Hash or throw
+  return
+}
+
+async function saveToDisk(url: string, dest: string): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+
+    var file = fs.createWriteStream(dest);
+    var request = https.get(url, function(response) {
+      response.pipe(file);
+      file.on('finish', function() {
+        file.close();  // close() is async, call cb after close completes.
+        resolve()
+      });
+    }).on('error', function(err) { // Handle errors
+      fs.unlink(dest, () => {}); // Delete the file async. (But we don't check the result)
+      reject(err.message);
+    })
+  })
+};
+
+
 
 async function isEntityPresentLocally(entityId: string) {
   return false
 }
 
-async function main() {
-  const serverMapLRU = new Map<string, number /* timestamp */>()
-
-  for await (const { entityId, servers } of getDeployedEntities()) {
-    await downloadEntityIfMissing(entityId, servers, serverMapLRU)
-  }
-
-  // console.log(`Wearables Hashes: ${Array.from(allHashes.keys())}`)
-
-  // // TODO: Only get from the peer that contained the file
-  // const client = new CatalystClient({ catalystUrl: `${productiveServers[0]}` });
-  // allHashes.forEach( async (hash: string) => {
-  //   const s = fs.createWriteStream(`./content/${hash}`);
-  //   await client.pipeContent(hash, s);
-  // })
-}
-
-export type Pointer = string
-export type Pointers = Pointer[]
-
-export function extractSceneHashesFromSnapshotData(prev: Set<EntityHash>, next: [EntityHash, Pointers]) {
-  const currentHash = next[0]
-  prev.add(currentHash)
-  return prev
-}
 
 export async function fetchJson(url: string) {
   const request = await fetch(url)
@@ -154,10 +166,15 @@ export async function getCatalystSnapshot(
   return { snapshotData, timestamp }
 }
 
-export type SnapshotData = [EntityHash, LocationPointer[]][]
+async function main() {
+  const serverMapLRU = new Map<string, number /* timestamp */>()
 
-export type LocationPointer = string
-export type EntityHash = string
+  for await (const { entityId, servers } of getDeployedEntities()) {
+    await downloadEntityIfMissing(entityId, servers, serverMapLRU)
+  }
+
+}
+
 
 main().catch((err) => {
   console.log('ERROR', err)
