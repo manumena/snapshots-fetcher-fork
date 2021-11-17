@@ -1,6 +1,9 @@
+import { Entity } from 'dcl-catalyst-commons'
+import future from 'fp-future'
 import * as path from 'path'
 import { getCatalystSnapshot, getEntityById, saveContentFileToDisk } from './client'
 import { checkFileExists } from './utils'
+
 
 export async function* getDeployedEntities(servers: string[]) {
   const allHashes: Map<string, string[]> = new Map()
@@ -47,7 +50,7 @@ export async function downloadEntity(
   entityId: string,
   presentInServers: string[],
   serverMapLRU: Map<string, number /* timestamp */>,
-  targetForlder: string
+  targetFolder: string
 ) {
   const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
 
@@ -56,19 +59,39 @@ export async function downloadEntity(
   // const fileName = path.join(downloadsFolder, entityId)
   // await fs.promises.writeFile(fileName, entityData)
 
-  const contents = entityData[0].content
-
-  for (const { hash } of contents) {
-    // download all entitie's files (if missing)
-    const fileName = path.join(targetForlder, hash)
-    if (!(await checkFileExists(fileName))) {
-      console.time(fileName)
-      await saveContentFileToDisk(serverToUse, hash, fileName)
-      console.timeEnd(fileName)
-    }
-  }
+  await downloadContentFromEntity(entityData, targetFolder, presentInServers, serverMapLRU)
 
   return entityData[0]
+}
+
+async function downloadContentFromEntity(entityData: Entity[], targetFolder: string,
+  presentInServers: string[],
+  serverMapLRU: Map<string, number /* timestamp */>) {
+
+
+  const contents = entityData[0].content!.map(content =>
+    downloadFileWithRetries(content.hash, targetFolder, presentInServers, serverMapLRU)
+  )
+  await Promise.all(contents)
+
+}
+
+
+async function downloadFileWithRetries(hash: string, targetFolder: string, presentInServers: string[], serverMapLRU: Map<string, number>) {
+  return downloadFileBla(hash, targetFolder, presentInServers, serverMapLRU )
+}
+
+async function downloadFileBla(hash: string, targetFolder: string, presentInServers: string[], serverMapLRU: Map<string, number>) {
+
+  // download all entitie's files (if missing)
+  const fileName = path.join(targetFolder, hash)
+  if (!(await checkFileExists(fileName))) {
+    const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
+    console.time(fileName)
+    await saveContentFileToDisk(serverToUse, hash, fileName)
+    console.timeEnd(fileName)
+  }
+
 }
 
 export async function isEntityPresentLocally(entityId: string) {
