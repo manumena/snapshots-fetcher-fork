@@ -22,6 +22,9 @@ export async function getCatalystSnapshot(
 
 export async function saveContentFileToDisk(server: string, hash: string, dest: string) {
   const url = new URL(`/content/contents/${hash}`, server)
+
+  if (Math.random() > 0.8) throw new Error('SYNTHETIC NETWORK ERROR')
+
   await saveToDisk(url.toString(), dest)
   // Check Hash or throw
   return

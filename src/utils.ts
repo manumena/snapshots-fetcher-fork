@@ -19,6 +19,10 @@ export async function checkFileExists(file: string): Promise<boolean> {
     .catch(() => false)
 }
 
+export async function sleep(time: number): Promise<void> {
+  return new Promise<void>((resolve) => setTimeout(resolve, time))
+}
+
 export async function saveToDisk(url: string, dest: string): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     var file = fs.createWriteStream(dest)

@@ -1,9 +1,15 @@
 import { Entity } from 'dcl-catalyst-commons'
-import future from 'fp-future'
+import future, { IFuture } from 'fp-future'
 import * as path from 'path'
 import { getCatalystSnapshot, getEntityById, saveContentFileToDisk } from './client'
-import { checkFileExists } from './utils'
+import { checkFileExists, sleep } from './utils'
+import PQueue from 'p-queue'
 
+const downloadJobQueue = new PQueue({
+  concurrency: 10,
+  autoStart: true,
+  timeout: 60000,
+})
 
 export async function* getDeployedEntities(servers: string[]) {
   const allHashes: Map<string, string[]> = new Map()
@@ -64,34 +70,88 @@ export async function downloadEntity(
   return entityData[0]
 }
 
-async function downloadContentFromEntity(entityData: Entity[], targetFolder: string,
+async function downloadContentFromEntity(
+  entityData: Entity[],
+  targetFolder: string,
   presentInServers: string[],
-  serverMapLRU: Map<string, number /* timestamp */>) {
-
-
-  const contents = entityData[0].content!.map(content =>
-    downloadFileWithRetries(content.hash, targetFolder, presentInServers, serverMapLRU)
-  )
+  serverMapLRU: Map<string, number /* timestamp */>
+) {
+  const contents = entityData[0].content!.map(async (content) => {
+    const job = await downloadFileWithRetries(content.hash, targetFolder, presentInServers, serverMapLRU)
+    await job.future
+  })
   await Promise.all(contents)
-
 }
 
-
-async function downloadFileWithRetries(hash: string, targetFolder: string, presentInServers: string[], serverMapLRU: Map<string, number>) {
-  return downloadFileBla(hash, targetFolder, presentInServers, serverMapLRU )
+type DownloadContentFileJob = {
+  servers: Set<string>
+  future: IFuture<any>
+  retries: number
 }
+const downloadFileJobsMap = new Map<string /* path */, DownloadContentFileJob>()
+const MAX_DOWNLOAD_RETRIES = 10
+const MAX_DOWNLOAD_RETRIES_WAIT_TIME = 1000
 
-async function downloadFileBla(hash: string, targetFolder: string, presentInServers: string[], serverMapLRU: Map<string, number>) {
+/**
+ * Downloads a content file, reuses jobs if the file is already scheduled to be downloaded or it is
+ * being downloaded
+ */
+async function downloadFileWithRetries(
+  hashToDownload: string,
+  targetFolder: string,
+  presentInServers: string[],
+  serverMapLRU: Map<string, number>
+): Promise<DownloadContentFileJob> {
+  const finalFileName = path.join(targetFolder, hashToDownload)
 
-  // download all entitie's files (if missing)
-  const fileName = path.join(targetFolder, hash)
-  if (!(await checkFileExists(fileName))) {
-    const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
-    console.time(fileName)
-    await saveContentFileToDisk(serverToUse, hash, fileName)
-    console.timeEnd(fileName)
+  if (!downloadFileJobsMap.has(finalFileName)) {
+    const job: DownloadContentFileJob = {
+      servers: new Set(presentInServers),
+      future: future(),
+      retries: 0,
+    }
+
+    job.future.finally(() => {
+      downloadFileJobsMap.delete(finalFileName)
+    })
+
+    downloadFileJobsMap.set(finalFileName, job)
+
+    downloadJobQueue.add(async () => {
+      while (true) {
+        try {
+          // TODO: round robin servers when fails
+          const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
+
+          await downloadContentFile(hashToDownload, finalFileName, serverToUse)
+
+          job.future.resolve(hashToDownload)
+        } catch (e: any) {
+          console.error(e)
+          job.retries++
+          console.log(`Retrying download of hash ${hashToDownload} ${job.retries}/${MAX_DOWNLOAD_RETRIES}`)
+          if (job.retries < MAX_DOWNLOAD_RETRIES) {
+            await sleep(MAX_DOWNLOAD_RETRIES_WAIT_TIME)
+            continue
+          } else {
+            job.future.reject(e)
+          }
+        }
+        return
+      }
+    })
   }
 
+  return downloadFileJobsMap.get(finalFileName)!
+}
+
+async function downloadContentFile(hash: string, finalFileName: string, serverToUse: string) {
+  // download all entitie's files (if missing)
+  if (!(await checkFileExists(finalFileName))) {
+    console.time(finalFileName)
+    await saveContentFileToDisk(serverToUse, hash, finalFileName)
+    console.timeEnd(finalFileName)
+  }
 }
 
 export async function isEntityPresentLocally(entityId: string) {
