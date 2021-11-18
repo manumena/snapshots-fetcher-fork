@@ -1,32 +1,26 @@
-import * as path from 'path'
+import { IFetchComponent } from '@well-known-components/http-server'
 import PQueue from 'p-queue'
-import { downloadEntity, getDeployedEntities, isEntityPresentLocally } from './snapshot-fetcher'
-import { Entity, EntityMetadata } from 'dcl-catalyst-commons'
+import { downloadEntityAndContentFiles, Entity, getDeployedEntities } from './snapshot-fetcher'
 
-const productiveServers = [
-  'https://peer.decentraland.org', // DCL
-  'https://peer-ec1.decentraland.org', // DCL - US East
-  'https://peer-wc1.decentraland.org', // DCL - US West
-  'https://peer-eu1.decentraland.org', // DCL - EU
-  'https://peer-ap1.decentraland.org', // DCL - AP1
-  'https://interconnected.online', // Esteban
-  'https://peer.decentral.games', // Baus
-  'https://peer.melonwave.com', // Ari
-  'https://peer.kyllian.me', // Kyllian
-  'https://peer.uadevops.com', // SFox
-  'https://peer.dclnodes.io', // DSM
-]
-
-const downloadsFolder = path.resolve('downloads')
-
-type DownloadEntitiesOptions = {
+/**
+ * @public
+ */
+export type DownloadEntitiesOptions = {
   catalystServers: string[]
   deployAction: (entity: Entity) => Promise<any>
   concurrency: number
   jobTimeout: number
+  isEntityPresentLocally: (entityId: string) => Promise<boolean>
+  contentFolder: string
+  components: {
+    fetcher: IFetchComponent
+  }
 }
 
-async function downloadEntities(options: DownloadEntitiesOptions) {
+/**
+ * @public
+ */
+export async function downloadEntities(options: DownloadEntitiesOptions) {
   const serverMapLRU = new Map<string, number /* timestamp */>()
 
   const downloadJobQueue = new PQueue({
@@ -35,36 +29,23 @@ async function downloadEntities(options: DownloadEntitiesOptions) {
     timeout: options.jobTimeout,
   })
 
-  for await (const { entityId, servers } of getDeployedEntities(options.catalystServers)) {
-    if (await isEntityPresentLocally(entityId)) continue
-
+  for await (const { entityId, servers } of getDeployedEntities(options.catalystServers, options.components.fetcher)) {
+    if (await options.isEntityPresentLocally(entityId)) continue
 
     function scheduleJob() {
       downloadJobQueue.add(async () => {
-          try {
-            const entityData = await downloadEntity(entityId, servers, serverMapLRU, downloadsFolder)
-            await options.deployAction(entityData)
-          } catch {
-            // TODO: Cancel job when fails forever
-            scheduleJob()
-          }
+        try {
+          const entityData = await downloadEntityAndContentFiles(entityId, servers, serverMapLRU, options.contentFolder)
+          await options.deployAction(entityData)
+        } catch {
+          // TODO: Cancel job when fails forever
+          scheduleJob()
+        }
       })
     }
 
     scheduleJob()
-
   }
 
   await downloadJobQueue.onIdle()
 }
-
-downloadEntities({
-  catalystServers: productiveServers,
-  async deployAction(entity) {
-    console.log('Deploying local entity ' + entity.id)
-  },
-  concurrency: 10,
-  jobTimeout: 30000,
-}).catch((err) => {
-  console.log('ERROR', err)
-})

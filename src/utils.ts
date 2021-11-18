@@ -1,15 +1,16 @@
-import 'dcl-catalyst-client'
 import * as fs from 'fs'
 import * as https from 'https'
-import * as path from 'path'
+import { IFetchComponent } from '@well-known-components/http-server'
 
-export async function fetchJson(url: string) {
-  const request = await fetch(url)
+export async function fetchJson(url: string, fetcher: IFetchComponent) {
+  const request = await fetcher.fetch(url)
+
   if (!request.ok) {
     throw new Error('HTTP Error while loading URL ' + url)
   }
 
   if (Math.random() > 0.8) throw new Error('SYNTHETIC NETWORK ERROR 2')
+
   const body = await request.json()
   return body
 }

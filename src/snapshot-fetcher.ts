@@ -1,17 +1,30 @@
-import { Entity, Timestamp } from 'dcl-catalyst-commons'
+// TODO: first download files to tmp folder, then validate CID and if valid, move to downloads folder
+
 import future, { IFuture } from 'fp-future'
 import * as path from 'path'
-import { getCatalystSnapshot, getEntityById, saveContentFileToDisk } from './client'
+import { getCatalystSnapshot, saveContentFileToDisk } from './client'
 import { checkFileExists, sleep } from './utils'
 import PQueue from 'p-queue'
 import { EntityHash, Path, Server } from './types'
 import * as fs from 'fs'
+import { IFetchComponent } from '@well-known-components/http-server'
+
+/**
+ * @public
+ */
+export type ContentMapping = { file: string; hash: string }
+
+/**
+ * @public
+ */
+export type Entity = { id: string; content: undefined | ContentMapping[] }
 
 const downloadJobQueue = new PQueue({
   concurrency: 10,
   autoStart: true,
   timeout: 60000,
 })
+
 const downloadFileJobsMap = new Map<Path, DownloadContentFileJob>()
 const MAX_DOWNLOAD_RETRIES = 10
 const MAX_DOWNLOAD_RETRIES_WAIT_TIME = 1000
@@ -23,8 +36,7 @@ type DownloadContentFileJob = {
   fileName: string
 }
 
-
-export async function* getDeployedEntities(servers: string[]) {
+export async function* getDeployedEntities(servers: string[], fetcher: IFetchComponent) {
   const allHashes: Map<string, string[]> = new Map()
 
   await Promise.allSettled(
@@ -32,7 +44,7 @@ export async function* getDeployedEntities(servers: string[]) {
       console.time(server)
       try {
         // Get current snapshot
-        const { snapshotData } = await getCatalystSnapshot(server, 'wearables')
+        const { snapshotData } = await getCatalystSnapshot(server, 'wearables', fetcher)
 
         snapshotData.forEach(([entityHash, _]) => {
           const entry = allHashes.get(entityHash)
@@ -65,35 +77,31 @@ function pickLeastRecentlyUsedServer(
   return mostSuitableOption
 }
 
-export async function downloadEntity(
+export async function downloadEntityAndContentFiles(
   entityId: EntityHash,
   presentInServers: string[],
-  serverMapLRU: Map<Server, Timestamp>,
+  serverMapLRU: Map<Server, number>,
   targetFolder: string
 ) {
-
   // download entity json
   const downloadEntityFileJob = downloadFileWithRetries(entityId, targetFolder, presentInServers, serverMapLRU)
   await downloadEntityFileJob.future
 
   const entityData = await fs.promises.readFile(downloadEntityFileJob.fileName)
-  const entity = JSON.parse(entityData.toString())
-  await downloadContentFromEntity(entity, targetFolder, presentInServers, serverMapLRU)
+  const entity: Entity = JSON.parse(entityData.toString())
 
-  return entity
-}
+  if (!entity.content) {
+    throw new Error(`The entity ${entityId} does not contain .content`)
+  }
 
-async function downloadContentFromEntity(
-  entityData: Entity[],
-  targetFolder: string,
-  presentInServers: string[],
-  serverMapLRU: Map<string, number /* timestamp */>
-) {
-  const contents = entityData[0].content!.map( (content) => {
+  const contents = entity.content.map((content) => {
     const job = downloadFileWithRetries(content.hash, targetFolder, presentInServers, serverMapLRU)
     return job.future
   })
+
   await Promise.all(contents)
+
+  return entity
 }
 
 const mapForTesting: Map<string, number> = new Map()
@@ -115,7 +123,7 @@ function downloadFileWithRetries(
       servers: new Set(presentInServers),
       future: future(),
       retries: 0,
-      fileName: finalFileName
+      fileName: finalFileName,
     }
 
     job.future.finally(() => {
@@ -130,7 +138,7 @@ function downloadFileWithRetries(
           // TODO: round robin servers when fails
           const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
           if (mapForTesting.has(hashToDownload)) {
-            throw new Error("CHAU" )
+            throw new Error('CHAU')
           }
           mapForTesting.set(hashToDownload, 1)
           await downloadContentFile(hashToDownload, finalFileName, serverToUse)
@@ -162,10 +170,6 @@ async function downloadContentFile(hash: string, finalFileName: string, serverTo
   if (!(await checkFileExists(finalFileName))) {
     await saveContentFileToDisk(serverToUse, hash, finalFileName)
   }
-}
-
-export async function isEntityPresentLocally(entityId: string) {
-  return false
 }
 
 /*
