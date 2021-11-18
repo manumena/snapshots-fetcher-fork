@@ -5,6 +5,7 @@ import { getCatalystSnapshot, getEntityById, saveContentFileToDisk } from './cli
 import { checkFileExists, sleep } from './utils'
 import PQueue from 'p-queue'
 import { EntityHash, Path, Server } from './types'
+import * as fs from 'fs'
 
 const downloadJobQueue = new PQueue({
   concurrency: 10,
@@ -19,6 +20,7 @@ type DownloadContentFileJob = {
   servers: Set<string>
   future: IFuture<any>
   retries: number
+  fileName: string
 }
 
 
@@ -69,16 +71,16 @@ export async function downloadEntity(
   serverMapLRU: Map<Server, Timestamp>,
   targetFolder: string
 ) {
-  const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
 
   // download entity json
-  const entityData = await getEntityById(entityId, serverToUse)
-  // const fileName = path.join(downloadsFolder, entityId)
-  // await fs.promises.writeFile(fileName, entityData)
+  const downloadEntityFileJob = downloadFileWithRetries(entityId, targetFolder, presentInServers, serverMapLRU)
+  await downloadEntityFileJob.future
 
-  await downloadContentFromEntity(entityData, targetFolder, presentInServers, serverMapLRU)
+  const entityData = await fs.promises.readFile(downloadEntityFileJob.fileName)
+  const entity = JSON.parse(entityData.toString())
+  await downloadContentFromEntity(entity, targetFolder, presentInServers, serverMapLRU)
 
-  return entityData[0]
+  return entity
 }
 
 async function downloadContentFromEntity(
@@ -87,9 +89,9 @@ async function downloadContentFromEntity(
   presentInServers: string[],
   serverMapLRU: Map<string, number /* timestamp */>
 ) {
-  const contents = entityData[0].content!.map(async (content) => {
-    const job = await downloadFileWithRetries(content.hash, targetFolder, presentInServers, serverMapLRU)
-    await job.future
+  const contents = entityData[0].content!.map( (content) => {
+    const job = downloadFileWithRetries(content.hash, targetFolder, presentInServers, serverMapLRU)
+    return job.future
   })
   await Promise.all(contents)
 }
@@ -100,12 +102,12 @@ const mapForTesting: Map<string, number> = new Map()
  * Downloads a content file, reuses jobs if the file is already scheduled to be downloaded or it is
  * being downloaded
  */
-async function downloadFileWithRetries(
+function downloadFileWithRetries(
   hashToDownload: string,
   targetFolder: string,
   presentInServers: string[],
   serverMapLRU: Map<string, number>
-): Promise<DownloadContentFileJob> {
+): DownloadContentFileJob {
   const finalFileName = path.join(targetFolder, hashToDownload)
 
   if (!downloadFileJobsMap.has(finalFileName)) {
@@ -113,6 +115,7 @@ async function downloadFileWithRetries(
       servers: new Set(presentInServers),
       future: future(),
       retries: 0,
+      fileName: finalFileName
     }
 
     job.future.finally(() => {
@@ -131,7 +134,6 @@ async function downloadFileWithRetries(
           }
           mapForTesting.set(hashToDownload, 1)
           await downloadContentFile(hashToDownload, finalFileName, serverToUse)
-          mapForTesting.delete(hashToDownload)
 
           job.future.resolve(hashToDownload)
         } catch (e: any) {
@@ -144,6 +146,8 @@ async function downloadFileWithRetries(
           } else {
             job.future.reject(e)
           }
+        } finally {
+          mapForTesting.delete(hashToDownload)
         }
         return
       }
