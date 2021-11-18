@@ -9,7 +9,7 @@ export async function fetchJson(url: string, fetcher: IFetchComponent): Promise<
     throw new Error('HTTP Error while loading URL ' + url)
   }
 
-  if (Math.random() > 0.8) throw new Error('SYNTHETIC NETWORK ERROR 2')
+  // if (Math.random() > 0.8) throw new Error('SYNTHETIC NETWORK ERROR 2')
 
   const body = await request.json()
   return body

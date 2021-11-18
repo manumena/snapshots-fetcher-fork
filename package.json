@@ -2,15 +2,16 @@
   "name": "catalyst-load-testing",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "dist/index.js",
+  "typings": "dist/index.d.ts",
   "scripts": {
     "build": "make build",
     "start": "ts-node test/run-test.ts",
     "test": "npm run build && npm run start"
   },
   "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "author": "Decentraland Contributors",
+  "license": "Apache-2.0",
   "dependencies": {
     "@microsoft/api-extractor": "^7.18.19",
     "@well-known-components/http-server": "^1.1.1",

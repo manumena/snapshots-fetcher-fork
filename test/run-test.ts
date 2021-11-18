@@ -1,6 +1,7 @@
 import { downloadEntities } from '../src'
 import * as path from 'path'
 import { checkFileExists } from '../src/utils'
+import { createFetchComponent } from './components'
 
 const productiveServers = [
   'https://peer.decentraland.org', // DCL
@@ -18,19 +19,6 @@ const productiveServers = [
 
 const downloadsFolder = path.resolve('downloads')
 
-import { IFetchComponent } from '@well-known-components/http-server'
-import * as nodeFetch from 'node-fetch'
-
-export function createFetchComponent() {
-  const fetch: IFetchComponent = {
-    async fetch(url: nodeFetch.RequestInfo, init?: nodeFetch.RequestInit): Promise<nodeFetch.Response> {
-      return nodeFetch.default(url, init)
-    },
-  }
-
-  return fetch
-}
-
 downloadEntities({
   catalystServers: productiveServers,
   async deployAction(entity) {
@@ -45,6 +33,7 @@ downloadEntities({
   components: {
     fetcher: createFetchComponent(),
   },
+  entityTypes: ['wearables', 'scenes'],
 }).catch((err) => {
   console.log('ERROR', err)
 })

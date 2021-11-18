@@ -6,7 +6,7 @@ import { downloadEntityAndContentFiles, Entity, getDeployedEntities } from './sn
  * @public
  */
 export type SnapshotsFetcherComponents = {
-  fetcher:  IFetchComponent
+  fetcher: IFetchComponent
 }
 
 /**
@@ -20,6 +20,10 @@ export type DownloadEntitiesOptions = {
   isEntityPresentLocally: (entityId: string) => Promise<boolean>
   contentFolder: string
   components: SnapshotsFetcherComponents
+  /**
+   * Entity types to fetch
+   */
+  entityTypes: string[]
 }
 
 /**
@@ -34,13 +38,23 @@ export async function downloadEntities(options: DownloadEntitiesOptions) {
     timeout: options.jobTimeout,
   })
 
-  for await (const { entityId, servers } of getDeployedEntities(options.catalystServers, options.components.fetcher)) {
+  for await (const { entityId, servers } of getDeployedEntities(
+    options.entityTypes,
+    options.catalystServers,
+    options.components.fetcher
+  )) {
     if (await options.isEntityPresentLocally(entityId)) continue
 
     function scheduleJob() {
       downloadJobQueue.add(async () => {
         try {
-          const entityData = await downloadEntityAndContentFiles(options.components, entityId, servers, serverMapLRU, options.contentFolder)
+          const entityData = await downloadEntityAndContentFiles(
+            options.components,
+            entityId,
+            servers,
+            serverMapLRU,
+            options.contentFolder
+          )
           await options.deployAction(entityData)
         } catch {
           // TODO: Cancel job when fails forever

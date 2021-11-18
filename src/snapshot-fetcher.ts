@@ -37,31 +37,32 @@ type DownloadContentFileJob = {
   fileName: string
 }
 
-export async function* getDeployedEntities(servers: string[], fetcher: IFetchComponent) {
+export async function* getDeployedEntities(entityTypes: string[], servers: string[], fetcher: IFetchComponent) {
   const allHashes: Map<string, string[]> = new Map()
 
   await Promise.allSettled(
-    servers.map(async (server) => {
-      console.time(server)
-      try {
-        // Get current snapshot
-        const { snapshotData } = await getCatalystSnapshot(server, 'wearables', fetcher)
+    entityTypes.map((entityType) =>
+      Promise.allSettled(
+        servers.map(async (server) => {
+          try {
+            // Get current snapshot
+            const { snapshotData } = await getCatalystSnapshot(server, entityType, fetcher)
 
-        snapshotData.forEach(([entityHash, _]) => {
-          const entry = allHashes.get(entityHash)
-          if (!entry) {
-            allHashes.set(entityHash, [server])
-          } else {
-            entry.push(server)
+            snapshotData.forEach(([entityHash, _]) => {
+              const entry = allHashes.get(entityHash)
+              if (!entry) {
+                allHashes.set(entityHash, [server])
+              } else {
+                entry.push(server)
+              }
+            })
+          } catch (e: any) {
+            console.error(`Error while loading ${entityType} snapshots from ${server}`)
+            console.error(e)
           }
         })
-      } catch (e: any) {
-        console.error(`Error while loading snapshots from ${server}`)
-        console.error(e)
-      } finally {
-        console.timeEnd(server)
-      }
-    })
+      )
+    )
   )
 
   for (const [entityId, servers] of allHashes) {
@@ -85,7 +86,6 @@ export async function getEntityById(entityId: string, server: string, fetcher: I
   return response[0]
 }
 
-
 export async function downloadEntityAndContentFiles(
   components: SnapshotsFetcherComponents,
   entityId: EntityHash,
@@ -93,15 +93,13 @@ export async function downloadEntityAndContentFiles(
   serverMapLRU: Map<Server, number>,
   targetFolder: string
 ) {
-  // download entity metadata +
-
+  // download entity metadata + audit info
   const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
   const entityMetadata: Entity = await getEntityById(entityId, serverToUse, components.fetcher)
 
   // download entity file
   const downloadEntityFileJob = downloadFileWithRetries(entityId, targetFolder, presentInServers, serverMapLRU)
   await downloadEntityFileJob.future
-
 
   if (!entityMetadata.content) {
     throw new Error(`The entity ${entityId} does not contain .content`)

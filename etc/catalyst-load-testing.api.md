@@ -18,6 +18,7 @@ export type DownloadEntitiesOptions = {
     isEntityPresentLocally: (entityId: string) => Promise<boolean>;
     contentFolder: string;
     components: SnapshotsFetcherComponents;
+    entityTypes: string[];
 };
 
 // @public (undocumented)
