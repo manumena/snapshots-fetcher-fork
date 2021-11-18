@@ -1,5 +1,5 @@
 {
-  "name": "catalyst-load-testing",
+  "name": "@dcl/snapshots-fetcher",
   "version": "1.0.0",
   "description": "",
   "main": "dist/index.js",
