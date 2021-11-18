@@ -2,7 +2,7 @@ import * as fs from 'fs'
 import * as https from 'https'
 import { IFetchComponent } from '@well-known-components/http-server'
 
-export async function fetchJson(url: string, fetcher: IFetchComponent) {
+export async function fetchJson(url: string, fetcher: IFetchComponent): Promise<any> {
   const request = await fetcher.fetch(url)
 
   if (!request.ok) {

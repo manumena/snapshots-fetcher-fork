@@ -3,11 +3,12 @@
 import future, { IFuture } from 'fp-future'
 import * as path from 'path'
 import { getCatalystSnapshot, saveContentFileToDisk } from './client'
-import { checkFileExists, sleep } from './utils'
+import { checkFileExists, fetchJson, sleep } from './utils'
 import PQueue from 'p-queue'
 import { EntityHash, Path, Server } from './types'
 import * as fs from 'fs'
 import { IFetchComponent } from '@well-known-components/http-server'
+import { SnapshotsFetcherComponents } from '.'
 
 /**
  * @public
@@ -77,31 +78,43 @@ function pickLeastRecentlyUsedServer(
   return mostSuitableOption
 }
 
+export async function getEntityById(entityId: string, server: string, fetcher: IFetchComponent): Promise<Entity> {
+  const url = new URL(`/content/entities/wearable?id=${encodeURIComponent(entityId)}`, server)
+
+  const response: Entity[] = await fetchJson(url.toString(), fetcher)
+  return response[0]
+}
+
+
 export async function downloadEntityAndContentFiles(
+  components: SnapshotsFetcherComponents,
   entityId: EntityHash,
   presentInServers: string[],
   serverMapLRU: Map<Server, number>,
   targetFolder: string
 ) {
-  // download entity json
+  // download entity metadata +
+
+  const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
+  const entityMetadata: Entity = await getEntityById(entityId, serverToUse, components.fetcher)
+
+  // download entity file
   const downloadEntityFileJob = downloadFileWithRetries(entityId, targetFolder, presentInServers, serverMapLRU)
   await downloadEntityFileJob.future
 
-  const entityData = await fs.promises.readFile(downloadEntityFileJob.fileName)
-  const entity: Entity = JSON.parse(entityData.toString())
 
-  if (!entity.content) {
+  if (!entityMetadata.content) {
     throw new Error(`The entity ${entityId} does not contain .content`)
   }
 
-  const contents = entity.content.map((content) => {
+  const contents = entityMetadata.content.map((content) => {
     const job = downloadFileWithRetries(content.hash, targetFolder, presentInServers, serverMapLRU)
     return job.future
   })
 
   await Promise.all(contents)
 
-  return entity
+  return entityMetadata
 }
 
 const mapForTesting: Map<string, number> = new Map()

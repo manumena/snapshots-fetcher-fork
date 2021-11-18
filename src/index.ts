@@ -5,6 +5,13 @@ import { downloadEntityAndContentFiles, Entity, getDeployedEntities } from './sn
 /**
  * @public
  */
+export type SnapshotsFetcherComponents = {
+  fetcher:  IFetchComponent
+}
+
+/**
+ * @public
+ */
 export type DownloadEntitiesOptions = {
   catalystServers: string[]
   deployAction: (entity: Entity) => Promise<any>
@@ -12,9 +19,7 @@ export type DownloadEntitiesOptions = {
   jobTimeout: number
   isEntityPresentLocally: (entityId: string) => Promise<boolean>
   contentFolder: string
-  components: {
-    fetcher: IFetchComponent
-  }
+  components: SnapshotsFetcherComponents
 }
 
 /**
@@ -35,7 +40,7 @@ export async function downloadEntities(options: DownloadEntitiesOptions) {
     function scheduleJob() {
       downloadJobQueue.add(async () => {
         try {
-          const entityData = await downloadEntityAndContentFiles(entityId, servers, serverMapLRU, options.contentFolder)
+          const entityData = await downloadEntityAndContentFiles(options.components, entityId, servers, serverMapLRU, options.contentFolder)
           await options.deployAction(entityData)
         } catch {
           // TODO: Cancel job when fails forever

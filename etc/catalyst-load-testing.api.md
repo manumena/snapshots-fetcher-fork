@@ -17,14 +17,17 @@ export type DownloadEntitiesOptions = {
     jobTimeout: number;
     isEntityPresentLocally: (entityId: string) => Promise<boolean>;
     contentFolder: string;
-    components: {
-        fetcher: IFetchComponent;
-    };
+    components: SnapshotsFetcherComponents;
+};
+
+// @public (undocumented)
+export type SnapshotsFetcherComponents = {
+    fetcher: IFetchComponent;
 };
 
 // Warnings were encountered during analysis:
 //
-// src/index.ts:10:3 - (ae-forgotten-export) The symbol "Entity" needs to be exported by the entry point index.d.ts
+// src/index.ts:17:3 - (ae-forgotten-export) The symbol "Entity" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 
