@@ -1,20 +1,9 @@
 // This file is the "test-environment" analogous for src/components.ts
 // Here we define the test components to be used in the testing environment
 
-import { IFetchComponent } from '@well-known-components/http-server'
 import { createRunner } from '@well-known-components/test-helpers'
 import { SnapshotsFetcherComponents } from '../src'
-import * as nodeFetch from 'node-fetch'
-
-export function createFetchComponent() {
-  const fetch: IFetchComponent = {
-    async fetch(url: nodeFetch.RequestInfo, init?: nodeFetch.RequestInit): Promise<nodeFetch.Response> {
-      return nodeFetch.default(url, init)
-    },
-  }
-
-  return fetch
-}
+import { createFetchComponent } from './test-component'
 
 /**
  * Behaves like Jest "describe" function, used to describe a test for a

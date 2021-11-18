@@ -1,7 +1,7 @@
 import { downloadEntities } from '../src'
 import * as path from 'path'
 import { checkFileExists } from '../src/utils'
-import { createFetchComponent } from './components'
+import { createFetchComponent } from './test-component'
 
 const productiveServers = [
   'https://peer.decentraland.org', // DCL
@@ -22,7 +22,8 @@ const downloadsFolder = path.resolve('downloads')
 downloadEntities({
   catalystServers: productiveServers,
   async deployAction(entity) {
-    console.log('Deploying local entity ' + entity.id)
+    console.dir(entity)
+    console.log('Deploying local entity ' + entity.entityId)
   },
   concurrency: 10,
   jobTimeout: 30000,

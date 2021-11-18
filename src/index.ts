@@ -12,9 +12,19 @@ export type SnapshotsFetcherComponents = {
 /**
  * @public
  */
+export type EntityDeployment = {
+  entityId: string
+  entityType: string
+  content: Array<{ key: string; hash: string }>
+  auditInfo: any
+}
+
+/**
+ * @public
+ */
 export type DownloadEntitiesOptions = {
   catalystServers: string[]
-  deployAction: (entity: Entity) => Promise<any>
+  deployAction: (entity: EntityDeployment) => Promise<any>
   concurrency: number
   jobTimeout: number
   isEntityPresentLocally: (entityId: string) => Promise<boolean>

@@ -8,7 +8,7 @@ import PQueue from 'p-queue'
 import { EntityHash, Path, Server } from './types'
 import * as fs from 'fs'
 import { IFetchComponent } from '@well-known-components/http-server'
-import { SnapshotsFetcherComponents } from '.'
+import { EntityDeployment, SnapshotsFetcherComponents } from '.'
 
 /**
  * @public
@@ -79,11 +79,20 @@ function pickLeastRecentlyUsedServer(
   return mostSuitableOption
 }
 
-export async function getEntityById(entityId: string, server: string, fetcher: IFetchComponent): Promise<Entity> {
-  const url = new URL(`/content/entities/wearable?id=${encodeURIComponent(entityId)}`, server)
+export async function getEntityById(
+  entityId: string,
+  server: string,
+  fetcher: IFetchComponent
+): Promise<EntityDeployment> {
+  const url = new URL(`/content/deployments/?entityId=${encodeURIComponent(entityId)}&fields=auditInfo,content`, server)
 
-  const response: Entity[] = await fetchJson(url.toString(), fetcher)
-  return response[0]
+  const response = await fetchJson(url.toString(), fetcher)
+
+  if (!response.deployments[0]) {
+    throw new Error(`The entity ${entityId} could not be found in server ${server}`)
+  }
+
+  return response.deployments[0]
 }
 
 export async function downloadEntityAndContentFiles(
@@ -95,7 +104,7 @@ export async function downloadEntityAndContentFiles(
 ) {
   // download entity metadata + audit info
   const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
-  const entityMetadata: Entity = await getEntityById(entityId, serverToUse, components.fetcher)
+  const entityMetadata = await getEntityById(entityId, serverToUse, components.fetcher)
 
   // download entity file
   const downloadEntityFileJob = downloadFileWithRetries(entityId, targetFolder, presentInServers, serverMapLRU)

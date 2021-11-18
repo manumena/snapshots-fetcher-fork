@@ -12,7 +12,7 @@ export function downloadEntities(options: DownloadEntitiesOptions): Promise<void
 // @public (undocumented)
 export type DownloadEntitiesOptions = {
     catalystServers: string[];
-    deployAction: (entity: Entity) => Promise<any>;
+    deployAction: (entity: EntityDeployment) => Promise<any>;
     concurrency: number;
     jobTimeout: number;
     isEntityPresentLocally: (entityId: string) => Promise<boolean>;
@@ -22,13 +22,20 @@ export type DownloadEntitiesOptions = {
 };
 
 // @public (undocumented)
+export type EntityDeployment = {
+    entityId: string;
+    entityType: string;
+    content: Array<{
+        key: string;
+        hash: string;
+    }>;
+    auditInfo: any;
+};
+
+// @public (undocumented)
 export type SnapshotsFetcherComponents = {
     fetcher: IFetchComponent;
 };
-
-// Warnings were encountered during analysis:
-//
-// src/index.ts:17:3 - (ae-forgotten-export) The symbol "Entity" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 
