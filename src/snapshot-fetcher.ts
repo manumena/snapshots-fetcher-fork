@@ -1,17 +1,17 @@
-import { Entity } from 'dcl-catalyst-commons'
+import { Entity, Timestamp } from 'dcl-catalyst-commons'
 import future, { IFuture } from 'fp-future'
 import * as path from 'path'
 import { getCatalystSnapshot, getEntityById, saveContentFileToDisk } from './client'
 import { checkFileExists, sleep } from './utils'
 import PQueue from 'p-queue'
-import { hash } from 'eth-crypto'
+import { EntityHash, Path, Server } from './types'
 
 const downloadJobQueue = new PQueue({
   concurrency: 10,
   autoStart: true,
   timeout: 60000,
 })
-const downloadFileJobsMap = new Map<string /* path */, DownloadContentFileJob>()
+const downloadFileJobsMap = new Map<Path, DownloadContentFileJob>()
 const MAX_DOWNLOAD_RETRIES = 10
 const MAX_DOWNLOAD_RETRIES_WAIT_TIME = 1000
 
@@ -55,7 +55,7 @@ export async function* getDeployedEntities(servers: string[]) {
 }
 
 function pickLeastRecentlyUsedServer(
-  serversToPickFrom: string[],
+  serversToPickFrom: Server[],
   _serverMap: Map<string, number /* timestamp */>
 ): string {
   let mostSuitableOption = serversToPickFrom[Math.floor(Math.random() * serversToPickFrom.length)]
@@ -64,9 +64,9 @@ function pickLeastRecentlyUsedServer(
 }
 
 export async function downloadEntity(
-  entityId: string,
+  entityId: EntityHash,
   presentInServers: string[],
-  serverMapLRU: Map<string, number /* timestamp */>,
+  serverMapLRU: Map<Server, Timestamp>,
   targetFolder: string
 ) {
   const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
@@ -126,7 +126,6 @@ async function downloadFileWithRetries(
         try {
           // TODO: round robin servers when fails
           const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
-
           if (mapForTesting.has(hashToDownload)) {
             throw new Error("CHAU" )
           }
