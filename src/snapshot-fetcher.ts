@@ -5,7 +5,7 @@ import * as path from 'path'
 import { getCatalystSnapshot, saveContentFileToDisk } from './client'
 import { checkFileExists, fetchJson, sleep } from './utils'
 import PQueue from 'p-queue'
-import { EntityHash, Path, Server } from './types'
+import { EntityHash, Path, Server, Timestamp } from './types'
 import * as fs from 'fs'
 import { IFetchComponent } from '@well-known-components/http-server'
 import { EntityDeployment, SnapshotsFetcherComponents } from '.'
@@ -37,7 +37,7 @@ type DownloadContentFileJob = {
   fileName: string
 }
 
-export async function* getDeployedEntities(entityTypes: string[], servers: string[], fetcher: IFetchComponent) {
+export async function* getDeployedEntities(entityTypes: string[], servers: string[], fetcher: IFetchComponent, lastTimestamp: Map<Server, Timestamp>) {
   const allHashes: Map<string, string[]> = new Map()
 
   await Promise.allSettled(
@@ -46,7 +46,7 @@ export async function* getDeployedEntities(entityTypes: string[], servers: strin
         servers.map(async (server) => {
           try {
             // Get current snapshot
-            const { snapshotData } = await getCatalystSnapshot(server, entityType, fetcher)
+            const { snapshotData, timestamp } = await getCatalystSnapshot(server, entityType, fetcher)
 
             snapshotData.forEach(([entityHash, _]) => {
               const entry = allHashes.get(entityHash)
@@ -56,6 +56,11 @@ export async function* getDeployedEntities(entityTypes: string[], servers: strin
                 entry.push(server)
               }
             })
+
+            const lastTimestampForServer = lastTimestamp.get(server)
+            if (!lastTimestampForServer || lastTimestampForServer < timestamp ) {
+              lastTimestamp.set(server, timestamp)
+            }
           } catch (e: any) {
             console.error(`Error while loading ${entityType} snapshots from ${server}`)
             console.error(e)

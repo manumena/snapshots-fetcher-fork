@@ -6,8 +6,11 @@
 
 import { IFetchComponent } from '@well-known-components/http-server';
 
+// Warning: (ae-forgotten-export) The symbol "Server" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "Timestamp" needs to be exported by the entry point index.d.ts
+//
 // @public (undocumented)
-export function downloadEntities(options: DownloadEntitiesOptions): Promise<void>;
+export function downloadEntities(options: DownloadEntitiesOptions): Promise<Map<Server, Timestamp>>;
 
 // @public (undocumented)
 export type DownloadEntitiesOptions = {
