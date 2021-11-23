@@ -1,4 +1,7 @@
 node_modules
 dist
-downloads/Qm*
+downloads/**/*
+!downloads/.gitkeep
 temp
+coverage
+**/.DS_Store

@@ -4,41 +4,29 @@
 
 ```ts
 
+import { IBaseComponent } from '@well-known-components/interfaces';
 import { IFetchComponent } from '@well-known-components/http-server';
+import { ILoggerComponent } from '@well-known-components/interfaces';
 
-// Warning: (ae-forgotten-export) The symbol "Server" needs to be exported by the entry point index.d.ts
-// Warning: (ae-forgotten-export) The symbol "Timestamp" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "SnapshotsFetcherComponents" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "CatalystDeploymentStreamOptions" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "CatalystDeploymentStreamComponent" needs to be exported by the entry point index.d.ts
 //
 // @public (undocumented)
-export function downloadEntities(options: DownloadEntitiesOptions): Promise<Map<Server, Timestamp>>;
+export function createCatalystDeploymentStream(components: SnapshotsFetcherComponents, options: CatalystDeploymentStreamOptions): IBaseComponent & CatalystDeploymentStreamComponent;
 
-// @public (undocumented)
-export type DownloadEntitiesOptions = {
-    catalystServers: string[];
-    deployAction: (entity: EntityDeployment) => Promise<any>;
-    concurrency: number;
-    jobTimeout: number;
-    isEntityPresentLocally: (entityId: string) => Promise<boolean>;
-    contentFolder: string;
-    components: SnapshotsFetcherComponents;
-    entityTypes: string[];
-};
+// Warning: (ae-forgotten-export) The symbol "EntityHash" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "Server" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "EntityDeployment" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function downloadEntityAndContentFiles(components: Pick<SnapshotsFetcherComponents, 'fetcher'>, entityId: EntityHash, presentInServers: string[], serverMapLRU: Map<Server, number>, targetFolder: string, maxRetries: number, waitTimeBetweenRetries: number): Promise<EntityDeployment>;
 
-// @public (undocumented)
-export type EntityDeployment = {
-    entityId: string;
-    entityType: string;
-    content: Array<{
-        key: string;
-        hash: string;
-    }>;
-    auditInfo: any;
-};
-
-// @public (undocumented)
-export type SnapshotsFetcherComponents = {
-    fetcher: IFetchComponent;
-};
+// Warning: (ae-forgotten-export) The symbol "DeployedEntityStreamOptions" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "RemoteEntityDeployment" needs to be exported by the entry point index.d.ts
+//
+// @public
+export function getDeployedEntitiesStream(components: SnapshotsFetcherComponents, options: DeployedEntityStreamOptions): AsyncIterable<RemoteEntityDeployment>;
 
 // (No @packageDocumentation comment for this package)
 

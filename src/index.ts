@@ -1,85 +1,197 @@
-import { IFetchComponent } from '@well-known-components/http-server'
-import PQueue from 'p-queue'
-import { downloadEntityAndContentFiles, Entity, getDeployedEntities } from './snapshot-fetcher'
-import { Server, Timestamp } from './types'
+import { IBaseComponent } from '@well-known-components/interfaces'
+import { fetchPointerChanges, getEntityById, getGlobalSnapshot } from './client'
+import { downloadFileWithRetries } from './downloader'
+import { createExponentialFallofRetry } from './exponential-fallof-retry'
+import { processDeploymentsInFile } from './file-processor'
+import {
+  CatalystDeploymentStreamComponent,
+  CatalystDeploymentStreamOptions,
+  DeployedEntityStreamOptions,
+  DeploymentHandler,
+  EntityDeployment,
+  EntityHash,
+  RemoteEntityDeployment,
+  Server,
+  SnapshotsFetcherComponents,
+} from './types'
+import { coerceEntityDeployment, pickLeastRecentlyUsedServer, sleep } from './utils'
 
-/**
- * @public
- */
-export type SnapshotsFetcherComponents = {
-  fetcher: IFetchComponent
+if (parseInt(process.version.split('.')[0]) < 16) {
+  const { name } = require('../package.json')
+  throw new Error(`In order to work, the package ${name} needs to run in Node v16 or newer to handle streams properly.`)
 }
 
 /**
+ * Downloads an entity and its dependency files to a folder in the disk.
  * @public
  */
-export type EntityDeployment = {
-  entityId: string
-  entityType: string
-  content: Array<{ key: string; hash: string }>
-  auditInfo: any
-}
+export async function downloadEntityAndContentFiles(
+  components: Pick<SnapshotsFetcherComponents, 'fetcher'>,
+  entityId: EntityHash,
+  presentInServers: string[],
+  serverMapLRU: Map<Server, number>,
+  targetFolder: string,
+  maxRetries: number,
+  waitTimeBetweenRetries: number
+): Promise<EntityDeployment> {
+  // download entity metadata + audit info
+  const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
+  const entityMetadata = await getEntityById(components, entityId, serverToUse)
 
-/**
- * @public
- */
-export type DownloadEntitiesOptions = {
-  catalystServers: string[]
-  deployAction: (entity: EntityDeployment) => Promise<any>
-  concurrency: number
-  jobTimeout: number
-  isEntityPresentLocally: (entityId: string) => Promise<boolean>
-  contentFolder: string
-  components: SnapshotsFetcherComponents
-  /**
-   * Entity types to fetch
-   */
-  entityTypes: string[]
-}
+  // download entity file
+  await downloadFileWithRetries(
+    entityId,
+    targetFolder,
+    presentInServers,
+    serverMapLRU,
+    maxRetries,
+    waitTimeBetweenRetries
+  )
 
-/**
- * @public
- */
-export async function downloadEntities(options: DownloadEntitiesOptions): Promise<Map<Server, Timestamp>> {
-  const serverMapLRU = new Map<string, number /* timestamp */>()
-  const lastTimestampsMap = new Map()
-
-  const downloadJobQueue = new PQueue({
-    concurrency: options.concurrency,
-    autoStart: true,
-    timeout: options.jobTimeout,
-  })
-
-  for await (const { entityId, servers } of getDeployedEntities(
-    options.entityTypes,
-    options.catalystServers,
-    options.components.fetcher,
-    lastTimestampsMap
-  )) {
-    if (await options.isEntityPresentLocally(entityId)) continue
-
-    function scheduleJob() {
-      downloadJobQueue.add(async () => {
-        try {
-          const entityData = await downloadEntityAndContentFiles(
-            options.components,
-            entityId,
-            servers,
-            serverMapLRU,
-            options.contentFolder
-          )
-          await options.deployAction(entityData)
-        } catch {
-          // TODO: Cancel job when fails forever
-          scheduleJob()
-        }
-      })
-    }
-
-    scheduleJob()
+  if (!entityMetadata.content) {
+    throw new Error(`The entity ${entityId} does not contain .content`)
   }
 
-  await downloadJobQueue.onIdle()
+  await Promise.all(
+    entityMetadata.content.map((content) =>
+      downloadFileWithRetries(
+        content.hash,
+        targetFolder,
+        presentInServers,
+        serverMapLRU,
+        maxRetries,
+        waitTimeBetweenRetries
+      )
+    )
+  )
 
-  return lastTimestampsMap
+  return entityMetadata
+}
+
+/**
+ * Gets a stream of all the entities deployed to a server.
+ * Includes all the entities that are already present in the server.
+ * Accepts a fromTimestamp option to filter out previous deployments.
+ *
+ * @public
+ */
+export async function* getDeployedEntitiesStream(
+  components: SnapshotsFetcherComponents,
+  options: DeployedEntityStreamOptions
+): AsyncIterable<RemoteEntityDeployment> {
+  // the minimum timestamp we are looking for
+  const genesisTimestamp = options.fromTimestamp || 0
+
+  // the greatest timestamp we processed
+  let greatestProcessedTimestamp = genesisTimestamp
+
+  // 1. get the hash of the latest snapshot in the remote server, retry 10 times
+  const { hash, lastIncludedDeploymentTimestamp } = await getGlobalSnapshot(
+    components,
+    options.contentServer,
+    options.requestMaxRetries
+  )
+
+  // 2. download the snapshot file if it contains deployments
+  //    in the range we are interested (>= genesisTimestamp)
+  if (lastIncludedDeploymentTimestamp > genesisTimestamp) {
+    // 2.1. download the snapshot file if needed
+    const snapshotFilename = await downloadFileWithRetries(
+      hash,
+      options.contentFolder,
+      [options.contentServer],
+      new Map(),
+      options.requestMaxRetries,
+      options.requestRetryWaitTime
+    )
+
+    // 2.2. open the snapshot file and process line by line
+    const deploymentsInFile = processDeploymentsInFile(snapshotFilename)
+    for await (const rawDeployment of deploymentsInFile) {
+      const deployment = coerceEntityDeployment(rawDeployment)
+      if (!deployment) continue
+      // selectively ignore deployments by localTimestamp
+      if (deployment.localTimestamp >= genesisTimestamp) {
+        yield deployment
+      }
+      // update greatest processed timestamp
+      if (deployment.localTimestamp > greatestProcessedTimestamp) {
+        greatestProcessedTimestamp = deployment.localTimestamp
+      }
+    }
+  }
+
+  // 3. fetch the /pointer-changes of the remote server using the last timestamp from the previous step
+  do {
+    // 3.1. download pointer changes and yield
+    const pointerChanges = fetchPointerChanges(components, options.contentServer, greatestProcessedTimestamp)
+    for await (const rawDeployment of pointerChanges) {
+      const deployment = coerceEntityDeployment(rawDeployment)
+      if (!deployment) continue
+      // selectively ignore deployments by localTimestamp
+      if (deployment.localTimestamp >= genesisTimestamp) {
+        yield deployment
+      }
+      // update greatest processed timestamp
+      if (deployment.localTimestamp > greatestProcessedTimestamp) {
+        greatestProcessedTimestamp = deployment.localTimestamp
+      }
+    }
+
+    // 3.2 repeat (3) if waitTime > 0
+    await sleep(options.pointerChangesWaitTime)
+  } while (options.pointerChangesWaitTime > 0)
+}
+
+/**
+ * @public
+ */
+export function createCatalystDeploymentStream(
+  components: SnapshotsFetcherComponents,
+  options: CatalystDeploymentStreamOptions
+): IBaseComponent & CatalystDeploymentStreamComponent {
+  let logs = components.logger.getLogger(`CatalystDeploymentStream(${options.contentServer})`)
+  let greatestProcessedTimestamp = options.fromTimestamp || 0
+
+  const handlers: DeploymentHandler[] = []
+
+  const exponentialFallofRetryComponent = createExponentialFallofRetry(logs, {
+    action,
+    retryTime: options.reconnectTime,
+    retryTimeExponent: options.reconnectRetryTimeExponent ?? 1.1,
+  })
+
+  async function action() {
+    const deployments = getDeployedEntitiesStream(components, {
+      ...options,
+      fromTimestamp: greatestProcessedTimestamp,
+    })
+
+    for await (const deployment of deployments) {
+      // if the stream is closed then we should not process more deployments
+      if (exponentialFallofRetryComponent.isStopped()) {
+        logs.debug('Canceling running stream')
+        return
+      }
+
+      for (const cb of handlers) {
+        await cb(deployment, options.contentServer)
+      }
+
+      // update greatest processed timestamp
+      if (deployment.localTimestamp > greatestProcessedTimestamp) {
+        greatestProcessedTimestamp = deployment.localTimestamp
+      }
+    }
+  }
+
+  return {
+    ...exponentialFallofRetryComponent,
+    onDeployment(cb: DeploymentHandler) {
+      handlers.push(cb)
+    },
+    getGreatesProcessedTimestamp() {
+      return greatestProcessedTimestamp
+    },
+  }
 }
