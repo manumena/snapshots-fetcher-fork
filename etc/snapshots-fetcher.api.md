@@ -4,16 +4,16 @@
 
 ```ts
 
-import { IBaseComponent } from '@well-known-components/interfaces';
 import { IFetchComponent } from '@well-known-components/http-server';
 import { ILoggerComponent } from '@well-known-components/interfaces';
 
 // Warning: (ae-forgotten-export) The symbol "SnapshotsFetcherComponents" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "CatalystDeploymentStreamOptions" needs to be exported by the entry point index.d.ts
+// Warning: (ae-forgotten-export) The symbol "IJobWithLifecycle" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "CatalystDeploymentStreamComponent" needs to be exported by the entry point index.d.ts
 //
 // @public (undocumented)
-export function createCatalystDeploymentStream(components: SnapshotsFetcherComponents, options: CatalystDeploymentStreamOptions): IBaseComponent & CatalystDeploymentStreamComponent;
+export function createCatalystDeploymentStream(components: SnapshotsFetcherComponents, options: CatalystDeploymentStreamOptions): IJobWithLifecycle & CatalystDeploymentStreamComponent;
 
 // Warning: (ae-forgotten-export) The symbol "EntityHash" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "Server" needs to be exported by the entry point index.d.ts

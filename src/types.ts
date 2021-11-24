@@ -1,5 +1,5 @@
 import { IFetchComponent } from '@well-known-components/http-server'
-import { IBaseComponent, ILoggerComponent } from '@well-known-components/interfaces'
+import { ILoggerComponent } from '@well-known-components/interfaces'
 import { ExponentialFallofRetryComponent } from './exponential-fallof-retry'
 import { IJobQueue } from './job-queue-port'
 

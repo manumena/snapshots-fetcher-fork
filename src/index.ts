@@ -3,6 +3,7 @@ import { fetchPointerChanges, getEntityById, getGlobalSnapshot } from './client'
 import { downloadFileWithRetries } from './downloader'
 import { createExponentialFallofRetry } from './exponential-fallof-retry'
 import { processDeploymentsInFile } from './file-processor'
+import { IJobWithLifecycle } from './job-lifecycle-manager'
 import {
   CatalystDeploymentStreamComponent,
   CatalystDeploymentStreamOptions,
@@ -149,7 +150,7 @@ export async function* getDeployedEntitiesStream(
 export function createCatalystDeploymentStream(
   components: SnapshotsFetcherComponents,
   options: CatalystDeploymentStreamOptions
-): IBaseComponent & CatalystDeploymentStreamComponent {
+): IJobWithLifecycle & CatalystDeploymentStreamComponent {
   let logs = components.logger.getLogger(`CatalystDeploymentStream(${options.contentServer})`)
   let greatestProcessedTimestamp = options.fromTimestamp || 0
 
@@ -186,6 +187,7 @@ export function createCatalystDeploymentStream(
   }
 
   return {
+    // exponentialFallofRetryComponent contains start and stop methods used to control this job
     ...exponentialFallofRetryComponent,
     onDeployment(cb: DeploymentHandler) {
       handlers.push(cb)

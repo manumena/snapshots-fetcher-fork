@@ -1,14 +1,13 @@
 import { ILoggerComponent } from '@well-known-components/interfaces'
+import { IJobWithLifecycle } from './job-lifecycle-manager'
 import { sleep } from './utils'
 
 /**
  * @public
  */
-export type ExponentialFallofRetryComponent = {
+export type ExponentialFallofRetryComponent = IJobWithLifecycle & {
   getRetryCount(): number
   isStopped(): boolean
-  start(): Promise<void>
-  stop(): Promise<void>
 }
 
 /**
@@ -62,6 +61,8 @@ export function createExponentialFallofRetry(
         return
       }
 
+      reconnectionTime = Math.min(reconnectionTime, 86_400_000 /* one day */)
+
       logs.info('Retrying in ' + reconnectionTime.toFixed(1) + 'ms')
       await sleep(reconnectionTime)
     }
@@ -77,7 +78,10 @@ export function createExponentialFallofRetry(
     async start() {
       if (started === true) return
       started = true
-      start().catch(logs.error /* this should never be executed */)
+      start().catch(
+        /* this should never be executed because start() does not fail */
+        logs.error
+      )
     },
     async stop() {
       started = false
