@@ -149,10 +149,11 @@ export async function* getDeployedEntitiesStream(
  * This function returns a JobWithLifecycle that runs forever if well configured.
  * In pseudocode it does something like this
  *
+ * ```ts
  * while (jobRunning) {
  *   getDeployedEntitiesStream.map(components.deployer.deployEntity)
  * }
- *
+ * ```
  * @public
  */
 export function createCatalystDeploymentStream(

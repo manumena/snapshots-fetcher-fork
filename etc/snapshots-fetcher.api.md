@@ -12,8 +12,10 @@ import { ILoggerComponent } from '@well-known-components/interfaces';
 // Warning: (ae-forgotten-export) The symbol "IJobWithLifecycle" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "CatalystDeploymentStreamComponent" needs to be exported by the entry point index.d.ts
 //
-// @public (undocumented)
-export function createCatalystDeploymentStream(components: SnapshotsFetcherComponents, options: CatalystDeploymentStreamOptions): IJobWithLifecycle & CatalystDeploymentStreamComponent;
+// @public
+export function createCatalystDeploymentStream(components: SnapshotsFetcherComponents & {
+    deployer: IDeployerComponent;
+}, options: CatalystDeploymentStreamOptions): IJobWithLifecycle & CatalystDeploymentStreamComponent;
 
 // Warning: (ae-forgotten-export) The symbol "EntityHash" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "Server" needs to be exported by the entry point index.d.ts
@@ -27,6 +29,10 @@ export function downloadEntityAndContentFiles(components: Pick<SnapshotsFetcherC
 //
 // @public
 export function getDeployedEntitiesStream(components: SnapshotsFetcherComponents, options: DeployedEntityStreamOptions): AsyncIterable<RemoteEntityDeployment>;
+
+// Warnings were encountered during analysis:
+//
+// src/index.ts:160:46 - (ae-forgotten-export) The symbol "IDeployerComponent" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 
