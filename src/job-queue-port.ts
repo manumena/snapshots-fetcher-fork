@@ -14,6 +14,10 @@ export type IJobQueue = {
    * Schedules a job with retries. If it fails (throws), then the job goes back to the end of the queue to be processed later.
    */
   scheduleJobWithRetries<T>(fn: () => Promise<T>, retries: number): Promise<T>
+  /**
+   * All finished
+   */
+  onIdle(): Promise<void>
 }
 
 export function createJobQueue(options: createJobQueue.Options): IJobQueue & IBaseComponent {
@@ -24,6 +28,9 @@ export function createJobQueue(options: createJobQueue.Options): IJobQueue & IBa
   })
 
   return {
+    onIdle() {
+      return realQueue.onIdle()
+    },
     scheduleJob<T>(fn: () => Promise<T>): Promise<T> {
       return realQueue.add(fn)
     },
