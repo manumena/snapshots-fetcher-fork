@@ -34,6 +34,20 @@ export type SnapshotsFetcherComponents = {
 }
 
 /**
+ * A component that handles deployments. The deployEntity function should be idempotent, since
+ * it can be called several times with the same entity.
+ * @public
+ */
+export type IDeployerComponent = {
+  deployEntity(entity: RemoteEntityDeployment, contentServer: string): Promise<void>
+  /**
+   * onIdle returns a promise that should be resolved once every deployEntity(...) job has
+   * finished and there are no more queued jobs.
+   */
+  onIdle(): Promise<void>
+}
+
+/**
  * @public
  */
 export type EntityDeployment = {
@@ -80,7 +94,6 @@ export type DeployedEntityStreamOptions = {
  * @public
  */
 export type CatalystDeploymentStreamComponent = ExponentialFallofRetryComponent & {
-  onDeployment(cb: DeploymentHandler): void
   getGreatesProcessedTimestamp(): number
 }
 

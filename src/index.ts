@@ -11,6 +11,7 @@ import {
   DeploymentHandler,
   EntityDeployment,
   EntityHash,
+  IDeployerComponent,
   RemoteEntityDeployment,
   Server,
   SnapshotsFetcherComponents,
@@ -145,53 +146,51 @@ export async function* getDeployedEntitiesStream(
 }
 
 /**
+ * This function returns a JobWithLifecycle that runs forever if well configured.
+ * In pseudocode it does something like this
+ *
+ * while (jobRunning) {
+ *   getDeployedEntitiesStream.map(components.deployer.deployEntity)
+ * }
+ *
  * @public
  */
 export function createCatalystDeploymentStream(
-  components: SnapshotsFetcherComponents,
+  components: SnapshotsFetcherComponents & { deployer: IDeployerComponent },
   options: CatalystDeploymentStreamOptions
 ): IJobWithLifecycle & CatalystDeploymentStreamComponent {
   let logs = components.logger.getLogger(`CatalystDeploymentStream(${options.contentServer})`)
   let greatestProcessedTimestamp = options.fromTimestamp || 0
 
-  const handlers: DeploymentHandler[] = []
-
   const exponentialFallofRetryComponent = createExponentialFallofRetry(logs, {
-    action,
+    async action() {
+      const deployments = getDeployedEntitiesStream(components, {
+        ...options,
+        fromTimestamp: greatestProcessedTimestamp,
+      })
+
+      for await (const deployment of deployments) {
+        // if the stream is closed then we should not process more deployments
+        if (exponentialFallofRetryComponent.isStopped()) {
+          logs.debug('Canceling running stream')
+          return
+        }
+
+        await components.deployer.deployEntity(deployment, options.contentServer)
+
+        // update greatest processed timestamp
+        if (deployment.localTimestamp > greatestProcessedTimestamp) {
+          greatestProcessedTimestamp = deployment.localTimestamp
+        }
+      }
+    },
     retryTime: options.reconnectTime,
     retryTimeExponent: options.reconnectRetryTimeExponent ?? 1.1,
   })
 
-  async function action() {
-    const deployments = getDeployedEntitiesStream(components, {
-      ...options,
-      fromTimestamp: greatestProcessedTimestamp,
-    })
-
-    for await (const deployment of deployments) {
-      // if the stream is closed then we should not process more deployments
-      if (exponentialFallofRetryComponent.isStopped()) {
-        logs.debug('Canceling running stream')
-        return
-      }
-
-      for (const cb of handlers) {
-        await cb(deployment, options.contentServer)
-      }
-
-      // update greatest processed timestamp
-      if (deployment.localTimestamp > greatestProcessedTimestamp) {
-        greatestProcessedTimestamp = deployment.localTimestamp
-      }
-    }
-  }
-
   return {
     // exponentialFallofRetryComponent contains start and stop methods used to control this job
     ...exponentialFallofRetryComponent,
-    onDeployment(cb: DeploymentHandler) {
-      handlers.push(cb)
-    },
     getGreatesProcessedTimestamp() {
       return greatestProcessedTimestamp
     },

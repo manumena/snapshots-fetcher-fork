@@ -59,7 +59,7 @@ export function createJobLifecycleManagerComponent(
             .finally(() => {
               // then remove it from the list of running jobs after it ends
               if (createdJobs.get(name) === job) {
-                logs.info('Job stopped', { name })
+                logs.info('Job finished', { name })
                 createdJobs.delete(name)
               }
             })

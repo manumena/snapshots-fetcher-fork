@@ -4,6 +4,7 @@ import { createReadStream, unlinkSync } from 'fs'
 import { resolve } from 'path'
 import { sleep } from '../src/utils'
 import future from 'fp-future'
+import { IDeployerComponent } from '../src/types'
 
 test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
   const contentFolder = resolve('downloads')
@@ -93,8 +94,23 @@ test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
 
   it('fetches a stream', async () => {
     const r = []
+    const finishedFuture = future<void>()
+
+    const deployer: IDeployerComponent = {
+      async deployEntity(deployment, server) {
+        r.push(deployment)
+
+        if (r.length == 13) {
+          shouldFailOnNextPointerChanges = true
+          stream.stop()
+          finishedFuture.resolve()
+        }
+      },
+      onIdle: () => finishedFuture,
+    }
+
     const stream = createCatalystDeploymentStream(
-      { fetcher: components.fetcher, downloadQueue: components.downloadQueue, logger: components.logger },
+      { fetcher: components.fetcher, downloadQueue: components.downloadQueue, logger: components.logger, deployer },
       {
         contentServer: await components.getBaseUrl(),
         contentFolder,
@@ -106,23 +122,11 @@ test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
       }
     )
 
-    const finishedFuture = future<void>()
-
     expect(stream.isStopped()).toEqual(true)
-
-    stream.onDeployment(async (deployment) => {
-      r.push(deployment)
-
-      if (r.length == 13) {
-        shouldFailOnNextPointerChanges = true
-        stream.stop()
-        finishedFuture.resolve()
-      }
-    })
 
     await stream.start()
     expect(stream.isStopped()).toEqual(false)
-    await finishedFuture
+    await deployer.onIdle()
 
     expect({ snapshotHits }).toEqual({ snapshotHits: 1 })
 
