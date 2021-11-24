@@ -8,7 +8,6 @@ import {
   CatalystDeploymentStreamComponent,
   CatalystDeploymentStreamOptions,
   DeployedEntityStreamOptions,
-  DeploymentHandler,
   EntityDeployment,
   EntityHash,
   IDeployerComponent,
@@ -178,7 +177,7 @@ export function createCatalystDeploymentStream(
           return
         }
 
-        await components.deployer.deployEntity(deployment, options.contentServer)
+        await components.deployer.deployEntity(deployment, [options.contentServer])
 
         // update greatest processed timestamp
         if (deployment.localTimestamp > greatestProcessedTimestamp) {

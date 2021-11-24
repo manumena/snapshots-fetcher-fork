@@ -97,7 +97,7 @@ test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
     const finishedFuture = future<void>()
 
     const deployer: IDeployerComponent = {
-      async deployEntity(deployment, server) {
+      async deployEntity(deployment, servers) {
         r.push(deployment)
 
         if (r.length == 13) {

@@ -39,22 +39,12 @@ export type SnapshotsFetcherComponents = {
  * @public
  */
 export type IDeployerComponent = {
-  deployEntity(entity: RemoteEntityDeployment, contentServer: string): Promise<void>
+  deployEntity(entity: RemoteEntityDeployment, contentServers: string[]): Promise<void>
   /**
    * onIdle returns a promise that should be resolved once every deployEntity(...) job has
    * finished and there are no more queued jobs.
    */
   onIdle(): Promise<void>
-}
-
-/**
- * @public
- */
-export type EntityDeployment = {
-  entityId: string
-  entityType: string
-  content: Array<ContentMapping>
-  auditInfo: any
 }
 
 /**
@@ -121,4 +111,14 @@ export type RemoteEntityDeployment = {
   entityId: string
   localTimestamp: number
   authChain: any[]
+}
+
+/**
+ * @public
+ */
+export type EntityDeployment = {
+  entityId: string
+  entityType: string
+  content: Array<ContentMapping>
+  auditInfo: any
 }

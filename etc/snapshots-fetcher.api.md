@@ -32,7 +32,7 @@ export function getDeployedEntitiesStream(components: SnapshotsFetcherComponents
 
 // Warnings were encountered during analysis:
 //
-// src/index.ts:161:46 - (ae-forgotten-export) The symbol "IDeployerComponent" needs to be exported by the entry point index.d.ts
+// src/index.ts:160:46 - (ae-forgotten-export) The symbol "IDeployerComponent" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 
