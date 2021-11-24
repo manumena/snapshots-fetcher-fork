@@ -53,11 +53,13 @@ export function createExponentialFallofRetry(
 
       if (!started) {
         // break iterator if closed
+        logs.info('Breaking iteration, started == false')
         return
       }
 
       if (!options.retryTime) {
         // break iterator if no retryTime was set
+        logs.info('Not iterating due to missing or zero options.retryTime')
         return
       }
 
@@ -78,10 +80,7 @@ export function createExponentialFallofRetry(
     async start() {
       if (started === true) return
       started = true
-      start().catch(
-        /* this should never be executed because start() does not fail */
-        logs.error
-      )
+      await start()
     },
     async stop() {
       started = false

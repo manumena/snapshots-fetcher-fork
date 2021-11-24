@@ -154,6 +154,7 @@ export async function* getDeployedEntitiesStream(
  *   getDeployedEntitiesStream.map(components.deployer.deployEntity)
  * }
  * ```
+ *
  * @public
  */
 export function createCatalystDeploymentStream(

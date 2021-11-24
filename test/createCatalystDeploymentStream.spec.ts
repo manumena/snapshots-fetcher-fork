@@ -124,9 +124,14 @@ test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
 
     expect(stream.isStopped()).toEqual(true)
 
-    await stream.start()
+    const startPromise = stream.start()
+    while (stream.isStopped()) {
+      await sleep(1)
+    }
+
     expect(stream.isStopped()).toEqual(false)
     await deployer.onIdle()
+    await startPromise
 
     expect({ snapshotHits }).toEqual({ snapshotHits: 1 })
 
