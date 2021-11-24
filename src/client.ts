@@ -37,6 +37,8 @@ export async function* fetchJsonPaginated<T>(
       const nextRelative: string | void = partialHistory.pagination.next
       if (!nextRelative) break
       currentUrl = new URL(nextRelative, currentUrl).toString()
+    } else {
+      break
     }
   }
 }
