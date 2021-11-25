@@ -33,18 +33,6 @@ export async function sleep(time: number): Promise<void> {
   return new Promise<void>((resolve) => setTimeout(resolve, time))
 }
 
-export default function withCache<R>(handler: () => R): () => R {
-  const empty = Symbol('@empty')
-  let cache: R | symbol = empty
-  return () => {
-    if (cache === empty) {
-      cache = handler()
-    }
-
-    return cache as R
-  }
-}
-
 /**
  * Calculates a Qm prefixed hash for Decentraland (NOT CIDv0) from a readable stream
  */
@@ -100,76 +88,87 @@ export async function assertHash(filename: string, hash: string) {
 }
 
 export async function saveToDisk(originalUrl: string, destinationFilename: string, checkHash?: string): Promise<{}> {
-  const tmpFileName = await tmpFile('saveToDisk')
+  let tmpFileName: string
 
-  await new Promise<void>((resolve, reject) => {
-    const httpModule = originalUrl.startsWith('https:') ? https : http
-    const MAX_REDIRECTS = 10
+  do {
+    tmpFileName = destinationFilename + crypto.randomBytes(16).toString('hex')
+    // this is impossible
+  } while (await checkFileExists(tmpFileName))
 
-    function requestWithRedirects(redirectedUrl: string, redirects: number) {
-      const url = new URL(redirectedUrl, originalUrl).toString()
-      if (redirects > MAX_REDIRECTS) {
-        reject(new Error('Too much redirects'))
-        return
+  try {
+    await new Promise<void>((resolve, reject) => {
+      const httpModule = originalUrl.startsWith('https:') ? https : http
+      const MAX_REDIRECTS = 10
+
+      function requestWithRedirects(redirectedUrl: string, redirects: number) {
+        const url = new URL(redirectedUrl, originalUrl).toString()
+        if (redirects > MAX_REDIRECTS) {
+          reject(new Error('Too much redirects'))
+          return
+        }
+        httpModule
+          .get(url, (response) => {
+            if ((response.statusCode == 302 || response.statusCode == 301) && response.headers.location) {
+              // handle redirection
+              requestWithRedirects(response.headers.location!, redirects + 1)
+              return
+            } else if (!response.statusCode || response.statusCode > 300) {
+              reject(new Error('Invalid response from ' + url + ' status: ' + response.statusCode))
+              return
+            } else {
+              const file = fs.createWriteStream(tmpFileName, { emitClose: true })
+              response.pipe(file)
+
+              response.on('error', (err) => {
+                file.close()
+                reject(err)
+              })
+
+              file.on('error', (err) => {
+                reject(err)
+              })
+
+              file.on('finish', function () {
+                file.close() // close() is async, call cb after close completes.
+                resolve()
+              })
+            }
+          })
+          .on('error', function (err) {
+            reject(err)
+          })
       }
-      httpModule
-        .get(url, (response) => {
-          if ((response.statusCode == 302 || response.statusCode == 301) && response.headers.location) {
-            // handle redirection
-            requestWithRedirects(response.headers.location!, redirects + 1)
-          } else if (!response.statusCode || response.statusCode > 300) {
-            reject(new Error('Invalid response from ' + url + ' status: ' + response.statusCode))
-            return
-          } else {
-            const file = fs.createWriteStream(tmpFileName)
-            response.pipe(file)
 
-            response.on('error', (err) => {
-              // Handle errors
-              fs.unlink(tmpFileName, () => {}) // Delete the file async. (But we don't check the result)
-              file.close()
-              reject(err)
-            })
+      requestWithRedirects(originalUrl, 0)
+    })
 
-            file.on('finish', function () {
-              file.close() // close() is async, call cb after close completes.
-              resolve()
-            })
-          }
-        })
-        .on('error', function (err) {
-          // Handle errors
-          fs.unlink(tmpFileName, () => {}) // Delete the file async. (But we don't check the result)
-          reject(err)
-        })
-    }
+    // make files not executable
+    await fs.promises.chmod(tmpFileName, 0o644)
 
-    requestWithRedirects(originalUrl, 0)
-  })
-
-  // make files not executable
-  await fs.promises.chmod(tmpFileName, 0o644)
-
-  // check hash if present. delete file and fail in case of mismatch
-  if (checkHash) {
-    try {
-      await assertHash(tmpFileName, checkHash)
-    } catch (e) {
-      // delete the downloaded file if failed
+    // check hash if present. delete file and fail in case of mismatch
+    if (checkHash) {
       try {
-        await fs.promises.unlink(tmpFileName)
-      } catch {}
-      throw e
+        await assertHash(tmpFileName, checkHash)
+      } catch (e) {
+        // delete the downloaded file if failed
+        try {
+          await fs.promises.unlink(tmpFileName)
+        } catch {}
+        throw e
+      }
     }
-  }
 
-  // delete target file if exists
-  if (await checkFileExists(destinationFilename)) {
-    await fs.promises.unlink(destinationFilename)
-  }
+    // delete target file if exists
+    if (await checkFileExists(destinationFilename)) {
+      await fs.promises.unlink(destinationFilename)
+    }
 
-  // move downloaded file to target folder
-  await fs.promises.rename(tmpFileName, destinationFilename)
+    // move downloaded file to target folder
+    await fs.promises.rename(tmpFileName, destinationFilename)
+  } finally {
+    // Delete the file async. (But we don't check the result)
+    fs.unlink(tmpFileName, () => {})
+  }
 
   return {}
 }
@@ -188,25 +187,6 @@ export function coerceEntityDeployment(value: any): RemoteEntityDeployment | nul
 
   console.error('ERROR: Invalid entity deployment', value)
   return null
-}
-
-/**
- * Returns a temporary directory for this process
- */
-export const getTmpDir = withCache(async () => {
-  const tempPath = path.join(os.tmpdir(), 'dcl-')
-
-  return new Promise<string>((resolve, reject) => {
-    fs.mkdtemp(tempPath, (err, folder) => {
-      if (err) return reject(err)
-      resolve(folder)
-    })
-  })
-})
-
-export async function tmpFile(postfix: string): Promise<string> {
-  const fileName = `dcl-${crypto.randomBytes(16).toString('hex')}-${postfix}`
-  return path.join(await getTmpDir(), fileName)
 }
 
 export function pickLeastRecentlyUsedServer(
