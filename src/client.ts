@@ -21,19 +21,12 @@ export async function* fetchJsonPaginated<T>(
   while (currentUrl) {
     const metricLabels = contentServerMetricLabels(currentUrl)
     const { end: stopTimer } = components.metrics.startTimer(responseTimeMetric)
-    const res = await components.fetcher.fetch(currentUrl)
-    stopTimer({ ...metricLabels, status_code: res.status.toString() })
-    if (!res.ok) {
-      throw new Error(
-        'Error while requesting deployments to the url ' +
-          currentUrl +
-          '. Status code was: ' +
-          res.status +
-          ' Response text was: ' +
-          JSON.stringify(await res.text())
-      )
-    }
-    const partialHistory: any = await res.json()
+    const res = fetchJson(currentUrl, components.fetcher)
+    res.finally(() => {
+      stopTimer({ ...metricLabels })
+    })
+
+    const partialHistory: any = await res
     for (const elem of selector(partialHistory)) {
       yield elem
     }

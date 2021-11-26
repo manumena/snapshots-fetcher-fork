@@ -12,13 +12,20 @@ import { RemoteEntityDeployment, Server, SnapshotsFetcherComponents } from './ty
 import { ContentServerMetricLabels } from './metrics'
 
 export async function fetchJson(url: string, fetcher: IFetchComponent): Promise<any> {
-  const request = await fetcher.fetch(url)
+  const response = await fetcher.fetch(url)
 
-  if (!request.ok) {
-    throw new Error('HTTP Error while loading JSON from: ' + url)
+  if (!response.ok) {
+    throw new Error(
+      'Error while requesting deployments to the url ' +
+        url +
+        '. Status code was: ' +
+        response.status +
+        ' Response text was: ' +
+        JSON.stringify(await response.text())
+    )
   }
 
-  const body = await request.json()
+  const body = await response.json()
   return body
 }
 
