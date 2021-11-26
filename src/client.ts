@@ -1,5 +1,6 @@
+import { metricsDefinitions } from './metrics'
 import { EntityDeployment, RemoteEntityDeployment, SnapshotsFetcherComponents } from './types'
-import { fetchJson, saveToDisk } from './utils'
+import { contentServerMetricLabels, fetchJson, saveToDisk } from './utils'
 
 export async function getGlobalSnapshot(components: SnapshotsFetcherComponents, server: string, retries: number) {
   // TODO: validate response
@@ -10,14 +11,18 @@ export async function getGlobalSnapshot(components: SnapshotsFetcherComponents, 
 }
 
 export async function* fetchJsonPaginated<T>(
-  components: Pick<SnapshotsFetcherComponents, 'fetcher'>,
+  components: Pick<SnapshotsFetcherComponents, 'fetcher' | 'metrics'>,
   url: string,
-  selector: (responseBody: any) => T[]
+  selector: (responseBody: any) => T[],
+  responseTimeMetric: keyof typeof metricsDefinitions
 ): AsyncIterable<T> {
   // Perform the different queries
   let currentUrl = url
   while (currentUrl) {
+    const metricLabels = contentServerMetricLabels(currentUrl)
+    const { end: stopTimer } = components.metrics.startTimer(responseTimeMetric)
     const res = await components.fetcher.fetch(currentUrl)
+    stopTimer({ ...metricLabels, status_code: res.status.toString() })
     if (!res.ok) {
       throw new Error(
         'Error while requesting deployments to the url ' +
@@ -44,7 +49,7 @@ export async function* fetchJsonPaginated<T>(
 }
 
 export function fetchPointerChanges(
-  components: Pick<SnapshotsFetcherComponents, 'fetcher'>,
+  components: Pick<SnapshotsFetcherComponents, 'fetcher' | 'metrics'>,
   server: string,
   fromTimestamp: number
 ): AsyncIterable<RemoteEntityDeployment> {
@@ -52,13 +57,18 @@ export function fetchPointerChanges(
     `/content/pointer-changes?sortingOrder=ASC&sortingField=localTimestamp&from=${encodeURIComponent(fromTimestamp)}`,
     server
   ).toString()
-  return fetchJsonPaginated(components, url, ($) => $.deltas)
+  return fetchJsonPaginated(components, url, ($) => $.deltas, 'dcl_catalysts_pointer_changes_response_time_seconds')
 }
 
-export async function saveContentFileToDisk(server: string, hash: string, destinationFilename: string) {
+export async function saveContentFileToDisk(
+  components: Pick<SnapshotsFetcherComponents, 'metrics'>,
+  server: string,
+  hash: string,
+  destinationFilename: string
+) {
   const url = new URL(`/content/contents/${hash}`, server).toString()
 
-  return await saveToDisk(url, destinationFilename, hash)
+  return await saveToDisk(components, url, destinationFilename, hash)
 }
 
 export async function getEntityById(

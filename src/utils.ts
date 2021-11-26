@@ -8,7 +8,8 @@ import * as multihashes from 'multihashes'
 import { importer } from 'ipfs-unixfs-importer'
 import CID from 'cids'
 import { IFetchComponent } from '@well-known-components/http-server'
-import { RemoteEntityDeployment, Server } from './types'
+import { RemoteEntityDeployment, Server, SnapshotsFetcherComponents } from './types'
+import { ContentServerMetricLabels } from './metrics'
 
 export async function fetchJson(url: string, fetcher: IFetchComponent): Promise<any> {
   const request = await fetcher.fetch(url)
@@ -87,7 +88,12 @@ export async function assertHash(filename: string, hash: string) {
   }
 }
 
-export async function saveToDisk(originalUrl: string, destinationFilename: string, checkHash?: string): Promise<{}> {
+export async function saveToDisk(
+  components: Pick<SnapshotsFetcherComponents, 'metrics'>,
+  originalUrlString: string,
+  destinationFilename: string,
+  checkHash?: string
+): Promise<{}> {
   let tmpFileName: string
 
   do {
@@ -95,19 +101,30 @@ export async function saveToDisk(originalUrl: string, destinationFilename: strin
     // this is impossible
   } while (await checkFileExists(tmpFileName))
 
+  const metricsLabels: ContentServerMetricLabels = {
+    remote_server: '',
+  }
+
   try {
     await new Promise<void>((resolve, reject) => {
-      const httpModule = originalUrl.startsWith('https:') ? https : http
       const MAX_REDIRECTS = 10
 
       function requestWithRedirects(redirectedUrl: string, redirects: number) {
-        const url = new URL(redirectedUrl, originalUrl).toString()
+        const url = new URL(redirectedUrl, originalUrlString)
+        const httpModule = url.protocol === 'https:' ? https : http
         if (redirects > MAX_REDIRECTS) {
           reject(new Error('Too much redirects'))
           return
         }
+
+        Object.assign(metricsLabels, contentServerMetricLabels(url.toString()))
+
+        const { end: endTimeMeasurement } = components.metrics.startTimer(
+          'dcl_content_download_duration_seconds',
+          metricsLabels
+        )
         httpModule
-          .get(url, (response) => {
+          .get(url.toString(), (response) => {
             if ((response.statusCode == 302 || response.statusCode == 301) && response.headers.location) {
               // handle redirection
               requestWithRedirects(response.headers.location!, redirects + 1)
@@ -122,24 +139,32 @@ export async function saveToDisk(originalUrl: string, destinationFilename: strin
               response.on('error', (err) => {
                 file.close()
                 reject(err)
+                components.metrics.increment('dcl_content_download_errors_total', metricsLabels)
+                endTimeMeasurement()
               })
 
               file.on('error', (err) => {
                 reject(err)
+                components.metrics.increment('dcl_content_download_errors_total', metricsLabels)
+                endTimeMeasurement()
               })
 
               file.on('finish', function () {
                 file.close() // close() is async, call cb after close completes.
+                components.metrics.increment('dcl_content_download_bytes_total', metricsLabels, file.bytesWritten)
+                endTimeMeasurement()
                 resolve()
               })
             }
           })
           .on('error', function (err) {
             reject(err)
+            components.metrics.increment('dcl_content_download_errors_total', metricsLabels)
+            endTimeMeasurement()
           })
       }
 
-      requestWithRedirects(originalUrl, 0)
+      requestWithRedirects(originalUrlString, 0)
     })
 
     // make files not executable
@@ -150,6 +175,7 @@ export async function saveToDisk(originalUrl: string, destinationFilename: strin
       try {
         await assertHash(tmpFileName, checkHash)
       } catch (e) {
+        components.metrics.increment('dcl_content_download_hash_errors_total', metricsLabels)
         // delete the downloaded file if failed
         try {
           await fs.promises.unlink(tmpFileName)
@@ -196,4 +222,11 @@ export function pickLeastRecentlyUsedServer(
   let mostSuitableOption = serversToPickFrom[Math.floor(Math.random() * serversToPickFrom.length)]
   // TODO: implement load balancing strategy
   return mostSuitableOption
+}
+
+export function contentServerMetricLabels(contentServer: string): ContentServerMetricLabels {
+  const url = new URL(contentServer)
+  return {
+    remote_server: url.origin,
+  }
 }

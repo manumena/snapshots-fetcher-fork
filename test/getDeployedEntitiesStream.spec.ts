@@ -70,7 +70,12 @@ test('getDeployedEntitiesStream', ({ components, stubComponents }) => {
   it('fetches a stream', async () => {
     const r = []
     const stream = getDeployedEntitiesStream(
-      { fetcher: components.fetcher, downloadQueue: components.downloadQueue, logger: components.logger },
+      {
+        fetcher: components.fetcher,
+        downloadQueue: components.downloadQueue,
+        logger: components.logger,
+        metrics: components.metrics,
+      },
       {
         contentServer: await components.getBaseUrl(),
         contentFolder,
@@ -152,7 +157,12 @@ test("getDeployedEntitiesStream does not download snapshot if it doesn't include
   it('fetches the stream', async () => {
     const r = []
     const stream = getDeployedEntitiesStream(
-      { fetcher: components.fetcher, downloadQueue: components.downloadQueue, logger: components.logger },
+      {
+        fetcher: components.fetcher,
+        downloadQueue: components.downloadQueue,
+        logger: components.logger,
+        metrics: components.metrics,
+      },
       {
         fromTimestamp: 150,
         contentServer: await components.getBaseUrl(),

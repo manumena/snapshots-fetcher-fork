@@ -1,7 +1,8 @@
 import { IFetchComponent } from '@well-known-components/http-server'
-import { ILoggerComponent } from '@well-known-components/interfaces'
+import { ILoggerComponent, IMetricsComponent } from '@well-known-components/interfaces'
 import { ExponentialFallofRetryComponent } from './exponential-fallof-retry'
 import { IJobQueue } from './job-queue-port'
+import { metricsDefinitions } from './metrics'
 
 /**
  * @public
@@ -28,6 +29,7 @@ export type ContentMapping = { file: string; hash: string }
  * @public
  */
 export type SnapshotsFetcherComponents = {
+  metrics: IMetricsComponent<keyof typeof metricsDefinitions>
   fetcher: IFetchComponent
   downloadQueue: IJobQueue
   logger: ILoggerComponent

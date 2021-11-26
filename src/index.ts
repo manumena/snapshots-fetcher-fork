@@ -15,7 +15,7 @@ import {
   Server,
   SnapshotsFetcherComponents,
 } from './types'
-import { coerceEntityDeployment, pickLeastRecentlyUsedServer, sleep } from './utils'
+import { coerceEntityDeployment, contentServerMetricLabels, pickLeastRecentlyUsedServer, sleep } from './utils'
 
 if (parseInt(process.version.split('.')[0]) < 16) {
   const { name } = require('../package.json')
@@ -27,7 +27,7 @@ if (parseInt(process.version.split('.')[0]) < 16) {
  * @public
  */
 export async function downloadEntityAndContentFiles(
-  components: Pick<SnapshotsFetcherComponents, 'fetcher'>,
+  components: Pick<SnapshotsFetcherComponents, 'fetcher' | 'metrics'>,
   entityId: EntityHash,
   presentInServers: string[],
   serverMapLRU: Map<Server, number>,
@@ -41,6 +41,7 @@ export async function downloadEntityAndContentFiles(
 
   // download entity file
   await downloadFileWithRetries(
+    components,
     entityId,
     targetFolder,
     presentInServers,
@@ -56,6 +57,7 @@ export async function downloadEntityAndContentFiles(
   await Promise.all(
     entityMetadata.content.map((content) =>
       downloadFileWithRetries(
+        components,
         content.hash,
         targetFolder,
         presentInServers,
@@ -86,6 +88,8 @@ export async function* getDeployedEntitiesStream(
   // the greatest timestamp we processed
   let greatestProcessedTimestamp = genesisTimestamp
 
+  const metricLabels = contentServerMetricLabels(options.contentServer)
+
   // 1. get the hash of the latest snapshot in the remote server, retry 10 times
   const { hash, lastIncludedDeploymentTimestamp } = await getGlobalSnapshot(
     components,
@@ -95,9 +99,10 @@ export async function* getDeployedEntitiesStream(
 
   // 2. download the snapshot file if it contains deployments
   //    in the range we are interested (>= genesisTimestamp)
-  if (lastIncludedDeploymentTimestamp > genesisTimestamp) {
+  if (hash && lastIncludedDeploymentTimestamp && lastIncludedDeploymentTimestamp > genesisTimestamp) {
     // 2.1. download the snapshot file if needed
     const snapshotFilename = await downloadFileWithRetries(
+      components,
       hash,
       options.contentFolder,
       [options.contentServer],
@@ -113,6 +118,7 @@ export async function* getDeployedEntitiesStream(
       if (!deployment) continue
       // selectively ignore deployments by localTimestamp
       if (deployment.localTimestamp >= genesisTimestamp) {
+        components.metrics.increment('dcl_entities_deployments_processed_total', metricLabels)
         yield deployment
       }
       // update greatest processed timestamp
@@ -131,6 +137,7 @@ export async function* getDeployedEntitiesStream(
       if (!deployment) continue
       // selectively ignore deployments by localTimestamp
       if (deployment.localTimestamp >= genesisTimestamp) {
+        components.metrics.increment('dcl_entities_deployments_processed_total', metricLabels)
         yield deployment
       }
       // update greatest processed timestamp
@@ -163,26 +170,35 @@ export function createCatalystDeploymentStream(
   let logs = components.logger.getLogger(`CatalystDeploymentStream(${options.contentServer})`)
   let greatestProcessedTimestamp = options.fromTimestamp || 0
 
+  const metricsLabels = contentServerMetricLabels(options.contentServer)
+
   const exponentialFallofRetryComponent = createExponentialFallofRetry(logs, {
     async action() {
-      const deployments = getDeployedEntitiesStream(components, {
-        ...options,
-        fromTimestamp: greatestProcessedTimestamp,
-      })
+      try {
+        components.metrics.increment('dcl_deployments_stream_reconnection_count', metricsLabels)
 
-      for await (const deployment of deployments) {
-        // if the stream is closed then we should not process more deployments
-        if (exponentialFallofRetryComponent.isStopped()) {
-          logs.debug('Canceling running stream')
-          return
+        const deployments = getDeployedEntitiesStream(components, {
+          ...options,
+          fromTimestamp: greatestProcessedTimestamp,
+        })
+
+        for await (const deployment of deployments) {
+          // if the stream is closed then we should not process more deployments
+          if (exponentialFallofRetryComponent.isStopped()) {
+            logs.debug('Canceling running stream')
+            return
+          }
+
+          await components.deployer.deployEntity(deployment, [options.contentServer])
+
+          // update greatest processed timestamp
+          if (deployment.localTimestamp > greatestProcessedTimestamp) {
+            greatestProcessedTimestamp = deployment.localTimestamp
+          }
         }
-
-        await components.deployer.deployEntity(deployment, [options.contentServer])
-
-        // update greatest processed timestamp
-        if (deployment.localTimestamp > greatestProcessedTimestamp) {
-          greatestProcessedTimestamp = deployment.localTimestamp
-        }
+      } catch (e: any) {
+        components.metrics.increment('dcl_deployments_stream_failure_count', metricsLabels)
+        throw e
       }
     },
     retryTime: options.reconnectTime,

@@ -1,4 +1,4 @@
-import { Path } from './types'
+import { Path, SnapshotsFetcherComponents } from './types'
 import * as path from 'path'
 import { saveContentFileToDisk } from './client'
 import { checkFileExists, pickLeastRecentlyUsedServer, sleep } from './utils'
@@ -6,6 +6,7 @@ import { checkFileExists, pickLeastRecentlyUsedServer, sleep } from './utils'
 const downloadFileJobsMap = new Map<Path, ReturnType<typeof downloadFileWithRetries>>()
 
 async function downloadJob(
+  components: Pick<SnapshotsFetcherComponents, 'metrics'>,
   hashToDownload: string,
   finalFileName: string,
   presentInServers: string[],
@@ -20,13 +21,14 @@ async function downloadJob(
 
   for (;;) {
     retries++
+    const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
     try {
-      const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
-      await downloadContentFile(hashToDownload, finalFileName, serverToUse)
+      components.metrics.observe('dcl_available_servers_histogram', {}, presentInServers.length)
+      await downloadContentFile(components, hashToDownload, finalFileName, serverToUse)
+      components.metrics.observe('dcl_content_download_job_succeed_retries', {}, retries)
 
       return finalFileName
     } catch (e: any) {
-      console.log(`Retrying download of hash ${hashToDownload} ${retries}/${maxRetries}. Reason: ${e}`)
       if (retries < maxRetries) {
         await sleep(waitTimeBetweenRetries)
         continue
@@ -42,6 +44,7 @@ async function downloadJob(
  * being downloaded
  */
 export async function downloadFileWithRetries(
+  components: Pick<SnapshotsFetcherComponents, 'metrics'>,
   hashToDownload: string,
   targetFolder: string,
   presentInServers: string[],
@@ -57,6 +60,7 @@ export async function downloadFileWithRetries(
 
   try {
     const downloadWithRetriesJob = downloadJob(
+      components,
       hashToDownload,
       finalFileName,
       presentInServers,
@@ -72,8 +76,13 @@ export async function downloadFileWithRetries(
   }
 }
 
-async function downloadContentFile(hash: string, finalFileName: string, serverToUse: string) {
+async function downloadContentFile(
+  components: Pick<SnapshotsFetcherComponents, 'metrics'>,
+  hash: string,
+  finalFileName: string,
+  serverToUse: string
+) {
   if (!(await checkFileExists(finalFileName))) {
-    await saveContentFileToDisk(serverToUse, hash, finalFileName)
+    await saveContentFileToDisk(components, serverToUse, hash, finalFileName)
   }
 }

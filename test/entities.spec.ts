@@ -47,7 +47,7 @@ test('entities', ({ components, stubComponents }) => {
 
     const usedServers = new Map()
     const entity = await downloadEntityAndContentFiles(
-      { fetcher: components.fetcher },
+      { fetcher: components.fetcher, metrics: components.metrics },
       'QmXx5dDq7nnPuCCP43Ngc7iq4kkqDfC5PEJGawUHYLGxUn',
       [await components.getBaseUrl()],
       usedServers,

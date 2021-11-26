@@ -12,6 +12,8 @@ import {
   wireTestServerComponents,
 } from './functions-for-wkc-test-helpers'
 import { createLogComponent } from '@well-known-components/logger'
+import { createTestMetricsComponent } from '@well-known-components/metrics'
+import { metricsDefinitions } from '../src/metrics'
 
 // Record of components
 export type TestComponents = SnapshotsFetcherComponents & TestServerComponents<SnapshotsFetcherComponents>
@@ -36,11 +38,12 @@ export const test = createRunner<TestComponents>({
       timeout: 100000,
     })
     const logger = createLogComponent()
-
+    const metrics = createTestMetricsComponent(metricsDefinitions)
     const testServerComponents = await initTestServerComponents()
 
     return {
       ...testServerComponents,
+      metrics,
       logger,
       downloadQueue,
       fetcher,

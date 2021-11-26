@@ -110,7 +110,13 @@ test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
     }
 
     const stream = createCatalystDeploymentStream(
-      { fetcher: components.fetcher, downloadQueue: components.downloadQueue, logger: components.logger, deployer },
+      {
+        fetcher: components.fetcher,
+        downloadQueue: components.downloadQueue,
+        logger: components.logger,
+        deployer,
+        metrics: components.metrics,
+      },
       {
         contentServer: await components.getBaseUrl(),
         contentFolder,
