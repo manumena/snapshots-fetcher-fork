@@ -98,8 +98,8 @@ export async function getEntityById(
     throw new Error(`The remote entity ${entityId} at ${server} does not contain .entityType`)
   }
 
-  if (!deployment.content || !Array.isArray(deployment.content)) {
-    throw new Error(`The remote entity ${entityId} at ${server} does not contain .content`)
+  if (!deployment.content) {
+    deployment.content = []
   }
 
   return deployment
