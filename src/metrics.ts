@@ -3,6 +3,9 @@ import { validateMetricsDeclaration } from '@well-known-components/metrics'
 type ContentServerMetricLabelNames = 'remote_server'
 export type ContentServerMetricLabels = Record<ContentServerMetricLabelNames, string>
 
+/**
+ * @public
+ */
 export const metricsDefinitions = validateMetricsDeclaration({
   dcl_content_download_bytes_total: {
     help: 'Total downloaded bytes from other catalysts',

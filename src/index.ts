@@ -17,6 +17,8 @@ import {
 } from './types'
 import { coerceEntityDeployment, contentServerMetricLabels, pickLeastRecentlyUsedServer, sleep } from './utils'
 
+export { metricsDefinitions } from './metrics'
+
 if (parseInt(process.version.split('.')[0]) < 16) {
   const { name } = require('../package.json')
   throw new Error(`In order to work, the package ${name} needs to run in Node v16 or newer to handle streams properly.`)
