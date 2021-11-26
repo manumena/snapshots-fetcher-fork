@@ -21,12 +21,9 @@ export async function* fetchJsonPaginated<T>(
   while (currentUrl) {
     const metricLabels = contentServerMetricLabels(currentUrl)
     const { end: stopTimer } = components.metrics.startTimer(responseTimeMetric)
-    const res = fetchJson(currentUrl, components.fetcher)
-    res.finally(() => {
-      stopTimer({ ...metricLabels })
-    })
+    const partialHistory: any = await fetchJson(currentUrl, components.fetcher)
+    stopTimer({ ...metricLabels })
 
-    const partialHistory: any = await res
     for (const elem of selector(partialHistory)) {
       yield elem
     }
