@@ -15,6 +15,11 @@ export type IJobQueue = {
    */
   scheduleJobWithRetries<T>(fn: () => Promise<T>, retries: number): Promise<T>
   /**
+   * Schedules a job with priority.
+   * Operations with greater priority will be scheduled first.
+   */
+  scheduleJobWithPriority<T>(fn: () => Promise<T>, priority: number): Promise<T>
+  /**
    * All finished
    */
   onIdle(): Promise<void>
@@ -33,6 +38,11 @@ export function createJobQueue(options: createJobQueue.Options): IJobQueue & IBa
     },
     scheduleJob<T>(fn: () => Promise<T>): Promise<T> {
       return realQueue.add(fn)
+    },
+    scheduleJobWithPriority<T>(fn: () => Promise<T>, priority: number): Promise<T> {
+      return realQueue.add(fn, {
+        priority,
+      })
     },
     scheduleJobWithRetries<T>(fn: () => Promise<T>, retries: number): Promise<T> {
       if (!(retries | 0)) {
