@@ -84,5 +84,23 @@ export async function getEntityById(
     throw new Error(`The entity ${entityId} could not be found in server ${server}`)
   }
 
-  return response.deployments[0]
+  const deployment: EntityDeployment = response.deployments[0]
+
+  if (!deployment.auditInfo || !Array.isArray(deployment.auditInfo)) {
+    throw new Error(`The remote entity ${entityId} at ${server} does not contain .auditInfo`)
+  }
+
+  if (!deployment.entityId) {
+    throw new Error(`The remote entity ${entityId} at ${server} does not contain .entityId`)
+  }
+
+  if (!deployment.entityType) {
+    throw new Error(`The remote entity ${entityId} at ${server} does not contain .entityType`)
+  }
+
+  if (!deployment.content || !Array.isArray(deployment.content)) {
+    throw new Error(`The remote entity ${entityId} at ${server} does not contain .content`)
+  }
+
+  return deployment
 }
