@@ -42,7 +42,7 @@ test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
     components.router.get('/content/pointer-changes', async (ctx) => {
       if (ctx.url.searchParams.get('sortingOrder') != 'ASC')
         throw new Error('/pointer-changes MUST be ordered by localTimestamp ASC')
-      if (ctx.url.searchParams.get('sortingField') != 'localTimestamp')
+      if (ctx.url.searchParams.get('sortingField') != 'local_timestamp')
         throw new Error('/pointer-changes MUST be ordered by localTimestamp ASC')
 
       if (shouldFailOnNextPointerChanges) {
@@ -60,7 +60,7 @@ test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
               { entityType: 'profile', entityId: 'Qm000011', localTimestamp: 11, authChain: [] },
             ],
             pagination: {
-              next: '?from=11&entityId=Qm000011&sortingOrder=ASC&sortingField=localTimestamp',
+              next: '?from=11&entityId=Qm000011&sortingOrder=ASC&sortingField=local_timestamp',
             },
           },
         }

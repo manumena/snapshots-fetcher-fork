@@ -54,7 +54,7 @@ export function fetchPointerChanges(
   fromTimestamp: number
 ): AsyncIterable<RemoteEntityDeployment> {
   const url = new URL(
-    `/content/pointer-changes?sortingOrder=ASC&sortingField=localTimestamp&from=${encodeURIComponent(fromTimestamp)}`,
+    `/content/pointer-changes?sortingOrder=ASC&sortingField=local_timestamp&from=${encodeURIComponent(fromTimestamp)}`,
     server
   ).toString()
   return fetchJsonPaginated(components, url, ($) => $.deltas, 'dcl_catalysts_pointer_changes_response_time_seconds')
@@ -86,8 +86,8 @@ export async function getEntityById(
 
   const deployment: EntityDeployment = response.deployments[0]
 
-  if (!deployment.auditInfo || !Array.isArray(deployment.auditInfo)) {
-    throw new Error(`The remote entity ${entityId} at ${server} does not contain .auditInfo`)
+  if (!deployment.auditInfo || !Array.isArray(deployment.auditInfo.authChain)) {
+    throw new Error(`The remote entity ${entityId} at ${server} does not contain .auditInfo.authChain`)
   }
 
   if (!deployment.entityId) {

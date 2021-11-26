@@ -122,5 +122,5 @@ export type EntityDeployment = {
   entityId: string
   entityType: string
   content: Array<ContentMapping>
-  auditInfo: any
+  auditInfo: { authChain: any[] }
 }
