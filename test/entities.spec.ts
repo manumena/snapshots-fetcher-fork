@@ -56,9 +56,7 @@ test('entities', ({ components, stubComponents }) => {
       1
     )
 
-    expect(entity).toHaveProperty('entityId')
-    expect(entity).toHaveProperty('entityType')
-    expect(entity).toHaveProperty('content')
-    expect(entity).toHaveProperty('auditInfo')
+    expect(entity).toHaveProperty('pointers')
+    expect(entity).toHaveProperty('metadata')
   })
 })

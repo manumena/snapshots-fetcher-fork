@@ -1,5 +1,5 @@
 import { metricsDefinitions } from './metrics'
-import { EntityDeployment, RemoteEntityDeployment, SnapshotsFetcherComponents } from './types'
+import { RemoteEntityDeployment, SnapshotsFetcherComponents } from './types'
 import { contentServerMetricLabels, fetchJson, saveToDisk } from './utils'
 
 export async function getGlobalSnapshot(components: SnapshotsFetcherComponents, server: string, retries: number) {
@@ -59,38 +59,4 @@ export async function saveContentFileToDisk(
   const url = new URL(`/content/contents/${hash}`, server).toString()
 
   return await saveToDisk(components, url, destinationFilename, hash)
-}
-
-export async function getEntityById(
-  components: Pick<SnapshotsFetcherComponents, 'fetcher'>,
-  entityId: string,
-  server: string
-): Promise<EntityDeployment> {
-  const url = new URL(`/content/deployments/?entityId=${encodeURIComponent(entityId)}&fields=auditInfo,content`, server)
-
-  const response = await fetchJson(url.toString(), components.fetcher)
-
-  if (!response.deployments[0]) {
-    throw new Error(`The entity ${entityId} could not be found in server ${server}`)
-  }
-
-  const deployment: EntityDeployment = response.deployments[0]
-
-  if (!deployment.auditInfo || !Array.isArray(deployment.auditInfo.authChain)) {
-    throw new Error(`The remote entity ${entityId} at ${server} does not contain .auditInfo.authChain`)
-  }
-
-  if (!deployment.entityId) {
-    throw new Error(`The remote entity ${entityId} at ${server} does not contain .entityId`)
-  }
-
-  if (!deployment.entityType) {
-    throw new Error(`The remote entity ${entityId} at ${server} does not contain .entityType`)
-  }
-
-  if (!deployment.content) {
-    deployment.content = []
-  }
-
-  return deployment
 }

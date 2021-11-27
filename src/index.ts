@@ -1,5 +1,4 @@
-import { IBaseComponent } from '@well-known-components/interfaces'
-import { fetchPointerChanges, getEntityById, getGlobalSnapshot } from './client'
+import { fetchPointerChanges, getGlobalSnapshot } from './client'
 import { downloadFileWithRetries } from './downloader'
 import { createExponentialFallofRetry } from './exponential-fallof-retry'
 import { processDeploymentsInFile } from './file-processor'
@@ -7,8 +6,8 @@ import { IJobWithLifecycle } from './job-lifecycle-manager'
 import {
   CatalystDeploymentStreamComponent,
   CatalystDeploymentStreamOptions,
+  ContentMapping,
   DeployedEntityStreamOptions,
-  EntityDeployment,
   EntityHash,
   IDeployerComponent,
   RemoteEntityDeployment,
@@ -16,6 +15,7 @@ import {
   SnapshotsFetcherComponents,
 } from './types'
 import { coerceEntityDeployment, contentServerMetricLabels, pickLeastRecentlyUsedServer, sleep } from './utils'
+import * as fs from 'fs'
 
 export { metricsDefinitions } from './metrics'
 
@@ -26,6 +26,8 @@ if (parseInt(process.version.split('.')[0]) < 16) {
 
 /**
  * Downloads an entity and its dependency files to a folder in the disk.
+ *
+ * Returns the parsed JSON file of the deployed entityHash
  * @public
  */
 export async function downloadEntityAndContentFiles(
@@ -36,13 +38,9 @@ export async function downloadEntityAndContentFiles(
   targetFolder: string,
   maxRetries: number,
   waitTimeBetweenRetries: number
-): Promise<EntityDeployment> {
-  // download entity metadata + audit info
-  const serverToUse = pickLeastRecentlyUsedServer(presentInServers, serverMapLRU)
-  const entityMetadata = await getEntityById(components, entityId, serverToUse)
-
+): Promise<any> {
   // download entity file
-  await downloadFileWithRetries(
+  const entityFileName = await downloadFileWithRetries(
     components,
     entityId,
     targetFolder,
@@ -52,23 +50,25 @@ export async function downloadEntityAndContentFiles(
     waitTimeBetweenRetries
   )
 
-  if (!entityMetadata.content) {
-    throw new Error(`The entity ${entityId} does not contain .content`)
-  }
+  const entityMetadata: {
+    content?: Array<ContentMapping>
+  } = JSON.parse((await fs.promises.readFile(entityFileName)).toString())
 
-  await Promise.all(
-    entityMetadata.content.map((content) =>
-      downloadFileWithRetries(
-        components,
-        content.hash,
-        targetFolder,
-        presentInServers,
-        serverMapLRU,
-        maxRetries,
-        waitTimeBetweenRetries
+  if (entityMetadata.content) {
+    await Promise.all(
+      entityMetadata.content.map((content) =>
+        downloadFileWithRetries(
+          components,
+          content.hash,
+          targetFolder,
+          presentInServers,
+          serverMapLRU,
+          maxRetries,
+          waitTimeBetweenRetries
+        )
       )
     )
-  )
+  }
 
   return entityMetadata
 }
