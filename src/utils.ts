@@ -15,14 +15,7 @@ export async function fetchJson(url: string, fetcher: IFetchComponent): Promise<
   const response = await fetcher.fetch(url)
 
   if (!response.ok) {
-    throw new Error(
-      'Error while requesting deployments to the url ' +
-        url +
-        '. Status code was: ' +
-        response.status +
-        ' Response text was: ' +
-        JSON.stringify(await response.text())
-    )
+    throw new Error('Error fetching ' + url + '. Status code was: ' + response.status)
   }
 
   const body = await response.json()

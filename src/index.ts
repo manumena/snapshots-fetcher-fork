@@ -38,7 +38,7 @@ export async function downloadEntityAndContentFiles(
   targetFolder: string,
   maxRetries: number,
   waitTimeBetweenRetries: number
-): Promise<any> {
+): Promise<unknown> {
   // download entity file
   const entityFileName = await downloadFileWithRetries(
     components,
