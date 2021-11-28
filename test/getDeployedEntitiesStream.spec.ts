@@ -73,7 +73,7 @@ test('getDeployedEntitiesStream', ({ components, stubComponents }) => {
       {
         fetcher: components.fetcher,
         downloadQueue: components.downloadQueue,
-        logger: components.logger,
+        logs: components.logs,
         metrics: components.metrics,
       },
       {
@@ -160,7 +160,7 @@ test("getDeployedEntitiesStream does not download snapshot if it doesn't include
       {
         fetcher: components.fetcher,
         downloadQueue: components.downloadQueue,
-        logger: components.logger,
+        logs: components.logs,
         metrics: components.metrics,
       },
       {

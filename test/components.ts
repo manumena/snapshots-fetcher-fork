@@ -37,14 +37,14 @@ export const test = createRunner<TestComponents>({
       concurrency: 1,
       timeout: 100000,
     })
-    const logger = createLogComponent()
+    const logs = createLogComponent()
     const metrics = createTestMetricsComponent(metricsDefinitions)
     const testServerComponents = await initTestServerComponents()
 
     return {
       ...testServerComponents,
       metrics,
-      logger,
+      logs,
       downloadQueue,
       fetcher,
     }

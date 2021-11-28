@@ -28,10 +28,10 @@ export type JobLifecycleManagerOptions = {
  * itself should control its own core-loop and handle its exceptions.
  */
 export function createJobLifecycleManagerComponent(
-  components: Pick<SnapshotsFetcherComponents, 'logger'>,
+  components: Pick<SnapshotsFetcherComponents, 'logs'>,
   options: JobLifecycleManagerOptions
 ): IBaseComponent & JobLifecycleManagerComponent {
-  const logs = components.logger.getLogger(options.jobManagerName)
+  const logs = components.logs.getLogger(options.jobManagerName)
 
   const createdJobs = new Map<string, IJobWithLifecycle>()
 

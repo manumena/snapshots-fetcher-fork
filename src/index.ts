@@ -169,7 +169,7 @@ export function createCatalystDeploymentStream(
   components: SnapshotsFetcherComponents & { deployer: IDeployerComponent },
   options: CatalystDeploymentStreamOptions
 ): IJobWithLifecycle & CatalystDeploymentStreamComponent {
-  let logs = components.logger.getLogger(`CatalystDeploymentStream(${options.contentServer})`)
+  let logs = components.logs.getLogger(`CatalystDeploymentStream(${options.contentServer})`)
   let greatestProcessedTimestamp = options.fromTimestamp || 0
 
   const metricsLabels = contentServerMetricLabels(options.contentServer)

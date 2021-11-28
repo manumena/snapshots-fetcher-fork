@@ -32,7 +32,7 @@ export type SnapshotsFetcherComponents = {
   metrics: IMetricsComponent<keyof typeof metricsDefinitions>
   fetcher: IFetchComponent
   downloadQueue: IJobQueue
-  logger: ILoggerComponent
+  logs: ILoggerComponent
 }
 
 /**

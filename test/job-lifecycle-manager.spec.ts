@@ -8,7 +8,7 @@ test('job-manager-1', ({ components, stubComponents }) => {
 
   it('creates the manager', () => {
     jobManager = createJobLifecycleManagerComponent(
-      { logger: components.logger },
+      { logs: components.logs },
       {
         jobManagerName: 'test-manager',
         createJob(name: string) {
@@ -65,7 +65,7 @@ test('job-manager-stops-all', ({ components, stubComponents }) => {
 
   it('creates the manager', () => {
     jobManager = createJobLifecycleManagerComponent(
-      { logger: components.logger },
+      { logs: components.logs },
       {
         jobManagerName: 'test-manager',
         createJob(name: string) {

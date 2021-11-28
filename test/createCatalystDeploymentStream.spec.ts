@@ -113,7 +113,7 @@ test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
       {
         fetcher: components.fetcher,
         downloadQueue: components.downloadQueue,
-        logger: components.logger,
+        logs: components.logs,
         deployer,
         metrics: components.metrics,
       },
