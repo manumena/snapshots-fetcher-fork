@@ -56,8 +56,8 @@ export const metricsDefinitions = validateMetricsDeclaration({
 
   dcl_content_download_job_succeed_retries: {
     help: 'Summary of how much retries are required for a download job to succeed',
-    type: 'summary',
-    compressCount: 100,
+    type: 'histogram',
+    buckets: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 15, 20, 30],
     labelNames: [],
   },
 
