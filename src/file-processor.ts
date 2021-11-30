@@ -3,15 +3,9 @@ import { createInterface } from 'readline'
 import { createReadStream } from 'fs'
 import { checkFileExists, coerceEntityDeployment } from './utils'
 
-async function* processLineByLine(file: string) {
-  if (!(await checkFileExists(file))) {
-    throw new Error(`The file ${file} does not exist`)
-  }
-
-  const fileStream = createReadStream(file)
-
+async function* processLineByLine(input: NodeJS.ReadableStream) {
   yield* createInterface({
-    input: fileStream,
+    input,
     crlfDelay: Infinity,
   })
 }
@@ -22,7 +16,28 @@ async function* processLineByLine(file: string) {
  * @public
  */
 export async function* processDeploymentsInFile(file: string): AsyncIterable<RemoteEntityDeployment> {
-  for await (const line of processLineByLine(file)) {
+  if (!(await checkFileExists(file))) {
+    throw new Error(`The file ${file} does not exist`)
+  }
+
+  const stream = createReadStream(file)
+
+  try {
+    yield* processDeploymentsInStream(stream)
+  } finally {
+    stream.destroy()
+  }
+}
+
+/**
+ * Reads line by line from a stream.
+ * Parses every line and yields RemoteEntityDeployment.
+ * @public
+ */
+export async function* processDeploymentsInStream(
+  stream: NodeJS.ReadableStream
+): AsyncIterable<RemoteEntityDeployment> {
+  for await (const line of processLineByLine(stream)) {
     const theLine = line.trim()
     if (theLine.startsWith('{') && theLine.endsWith('}')) {
       const deployment = coerceEntityDeployment(JSON.parse(theLine))
