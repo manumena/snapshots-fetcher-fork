@@ -9,7 +9,7 @@ test('getDeployedEntitiesStream', ({ components, stubComponents }) => {
   const downloadedSnapshotFile = 'bafkreic2h5lbt3bjljanxmlybase65zmv6lbq3r6ervr6vpmqlb432kgzm'
   it('prepares the endpoints', () => {
     // serve the snapshots
-    components.router.get('/content/snapshot', async () => ({
+    components.router.get('/snapshot', async () => ({
       body: {
         hash: downloadedSnapshotFile,
         lastIncludedDeploymentTimestamp: 8,
@@ -18,7 +18,7 @@ test('getDeployedEntitiesStream', ({ components, stubComponents }) => {
 
     // serve the snapshot file
     let downloadAttempts = 0
-    components.router.get(`/content/contents/${downloadedSnapshotFile}`, async () => {
+    components.router.get(`/contents/${downloadedSnapshotFile}`, async () => {
       if (downloadAttempts == 0) {
         await sleep(100)
         downloadAttempts++
@@ -30,7 +30,7 @@ test('getDeployedEntitiesStream', ({ components, stubComponents }) => {
       }
     })
 
-    components.router.get('/content/pointer-changes', async (ctx) => {
+    components.router.get('/pointer-changes', async (ctx) => {
       if (!ctx.url.searchParams.has('from')) throw new Error('pointer-changes called without ?from')
 
       if (ctx.url.searchParams.get('from') == '9') {
@@ -114,14 +114,14 @@ test("getDeployedEntitiesStream does not download snapshot if it doesn't include
   const downloadedSnapshotFile = 'deployments-snapshot'
   it('prepares the endpoints', () => {
     // serve the snapshots
-    components.router.get('/content/snapshot', async () => ({
+    components.router.get('/snapshot', async () => ({
       body: {
         hash: downloadedSnapshotFile,
         lastIncludedDeploymentTimestamp: 100,
       },
     }))
 
-    components.router.get('/content/pointer-changes', async (ctx) => {
+    components.router.get('/pointer-changes', async (ctx) => {
       if (!ctx.url.searchParams.has('from')) throw new Error('pointer-changes called without ?from')
 
       if (ctx.url.searchParams.get('from') == '150') {

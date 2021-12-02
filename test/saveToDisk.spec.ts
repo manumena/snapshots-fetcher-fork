@@ -55,7 +55,7 @@ test('saveToDisk', ({ components, stubComponents }) => {
       }
     })
 
-    components.router.get(`/content/contents/alwaysFails`, async () => {
+    components.router.get(`/contents/alwaysFails`, async () => {
       return {
         status: 503,
       }
@@ -63,7 +63,7 @@ test('saveToDisk', ({ components, stubComponents }) => {
 
     let wasCalled = false
     // this endpoint works the first time and fails the 1+Nth time
-    components.router.get(`/content/contents/bafkreigwey5vc6q25ilofdu2vjvcag72eqj46lzipi6mredsfpe42ls2ri`, async () => {
+    components.router.get(`/contents/bafkreigwey5vc6q25ilofdu2vjvcag72eqj46lzipi6mredsfpe42ls2ri`, async () => {
       if (wasCalled) {
         return {
           status: 503,

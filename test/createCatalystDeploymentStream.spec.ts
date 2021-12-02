@@ -15,7 +15,7 @@ test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
 
   it('prepares the endpoints', () => {
     // serve the snapshots
-    components.router.get('/content/snapshot', async () => {
+    components.router.get('/snapshot', async () => {
       snapshotHits++
       return {
         body: {
@@ -27,7 +27,7 @@ test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
 
     // serve the snapshot file
     let downloadAttempts = 0
-    components.router.get(`/content/contents/${downloadedSnapshotFile}`, async () => {
+    components.router.get(`/contents/${downloadedSnapshotFile}`, async () => {
       if (downloadAttempts == 0) {
         await sleep(100)
         downloadAttempts++
@@ -39,7 +39,7 @@ test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
       }
     })
 
-    components.router.get('/content/pointer-changes', async (ctx) => {
+    components.router.get('/pointer-changes', async (ctx) => {
       if (ctx.url.searchParams.get('sortingOrder') != 'ASC')
         throw new Error('/pointer-changes MUST be ordered by localTimestamp ASC')
       if (ctx.url.searchParams.get('sortingField') != 'local_timestamp')

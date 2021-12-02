@@ -19,14 +19,14 @@ test('entities', ({ components, stubComponents }) => {
 
   it('prepares the endpoints', () => {
     // serve the snapshot file
-    components.router.get(`/content/deployments`, async () => {
+    components.router.get(`/deployments`, async () => {
       return {
         body: createReadStream('test/fixtures/entity-deployment.json'),
       }
     })
 
     let i = 0
-    components.router.get(`/content/contents/:file`, async (ctx) => {
+    components.router.get(`/contents/:file`, async (ctx) => {
       if (i++ % 3 == 0)
         return {
           status: 500,
