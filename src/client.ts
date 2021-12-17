@@ -3,9 +3,11 @@ import { RemoteEntityDeployment, SnapshotsFetcherComponents } from './types'
 import { contentServerMetricLabels, fetchJson, saveToDisk } from './utils'
 
 export async function getGlobalSnapshot(components: SnapshotsFetcherComponents, server: string, retries: number) {
+  const url = new URL(`${server}/snapshot`).toString()
+
   // TODO: validate response
   return await components.downloadQueue.scheduleJobWithRetries(
-    () => fetchJson(`${server}/snapshot`, components.fetcher),
+    () => fetchJson(url, components.fetcher),
     retries
   )
 }
@@ -44,8 +46,7 @@ export function fetchPointerChanges(
   fromTimestamp: number
 ): AsyncIterable<RemoteEntityDeployment> {
   const url = new URL(
-    `/pointer-changes?sortingOrder=ASC&sortingField=local_timestamp&from=${encodeURIComponent(fromTimestamp)}`,
-    server
+    `${server}/pointer-changes?sortingOrder=ASC&sortingField=local_timestamp&from=${encodeURIComponent(fromTimestamp)}`
   ).toString()
   return fetchJsonPaginated(components, url, ($) => $.deltas, 'dcl_catalysts_pointer_changes_response_time_seconds')
 }
@@ -56,7 +57,7 @@ export async function saveContentFileToDisk(
   hash: string,
   destinationFilename: string
 ) {
-  const url = new URL(`/contents/${hash}`, server).toString()
+  const url = new URL(`${server}/contents/${hash}`).toString()
 
   return await saveToDisk(components, url, destinationFilename, hash)
 }
