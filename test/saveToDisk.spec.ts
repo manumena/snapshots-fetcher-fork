@@ -2,6 +2,7 @@ import { test } from './components'
 import { readFileSync, unlinkSync, promises as fsPromises, constants } from 'fs'
 import { resolve } from 'path'
 import { Readable } from 'stream'
+import { gzipSync } from 'zlib'
 import { checkFileExists, saveToDisk } from '../src/utils'
 import { downloadFileWithRetries } from '../src/downloader'
 import { metricsDefinitions } from '../src/metrics'
@@ -73,7 +74,10 @@ test('saveToDisk', ({ components, stubComponents }) => {
       wasCalled = true
       return {
         status: 200,
-        body: 'some file',
+        body: gzipSync('some file'),
+        headers: {
+          'content-encoding': 'gzip',
+        },
       }
     })
 

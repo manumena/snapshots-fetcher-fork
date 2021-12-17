@@ -1,15 +1,18 @@
 import * as fs from 'fs'
-import * as os from 'os'
-import * as path from 'path'
+import { pipeline } from 'stream'
+import { promisify } from 'util'
 import * as http from 'http'
 import * as https from 'https'
 import * as crypto from 'crypto'
+import * as zlib from 'zlib'
 import * as multihashes from 'multihashes'
 import { importer } from 'ipfs-unixfs-importer'
 import CID from 'cids'
 import { IFetchComponent } from '@well-known-components/http-server'
 import { RemoteEntityDeployment, Server, SnapshotsFetcherComponents } from './types'
 import { ContentServerMetricLabels } from './metrics'
+
+const streamPipeline = promisify(pipeline)
 
 export async function fetchJson(url: string, fetcher: IFetchComponent): Promise<any> {
   const response = await fetcher.fetch(url)
@@ -123,8 +126,9 @@ export async function saveToDisk(
           'dcl_content_download_duration_seconds',
           metricsLabels
         )
+
         httpModule
-          .get(url.toString(), (response) => {
+          .get(url.toString(), { headers: { 'accept-encoding': 'gzip' } }, (response) => {
             if ((response.statusCode == 302 || response.statusCode == 301) && response.headers.location) {
               // handle redirection
               requestWithRedirects(response.headers.location!, redirects + 1)
@@ -134,27 +138,24 @@ export async function saveToDisk(
               return
             } else {
               const file = fs.createWriteStream(tmpFileName, { emitClose: true })
-              response.pipe(file)
 
-              response.on('error', (err) => {
-                file.close()
-                reject(err)
-                components.metrics.increment('dcl_content_download_errors_total', metricsLabels)
-                endTimeMeasurement()
-              })
+              const isGzip = response.headers['content-encoding'] == 'gzip'
 
-              file.on('error', (err) => {
-                reject(err)
-                components.metrics.increment('dcl_content_download_errors_total', metricsLabels)
-                endTimeMeasurement()
-              })
+              const pipe = isGzip ? streamPipeline(response, zlib.createGunzip(), file) : streamPipeline(response, file)
 
-              file.on('finish', function () {
-                file.close() // close() is async, call cb after close completes.
-                components.metrics.increment('dcl_content_download_bytes_total', metricsLabels, file.bytesWritten)
-                endTimeMeasurement()
-                resolve()
-              })
+              pipe
+                .then(() => {
+                  file.close() // close() is async, call cb after close completes.
+                  components.metrics.increment('dcl_content_download_bytes_total', metricsLabels, file.bytesWritten)
+                  endTimeMeasurement()
+                  resolve()
+                })
+                .catch((err) => {
+                  file.close()
+                  reject(err)
+                  components.metrics.increment('dcl_content_download_errors_total', metricsLabels)
+                  endTimeMeasurement()
+                })
             }
           })
           .on('error', function (err) {
