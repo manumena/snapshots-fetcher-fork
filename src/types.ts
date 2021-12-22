@@ -103,6 +103,10 @@ export type CatalystDeploymentStreamOptions = DeployedEntityStreamOptions & {
    * 1.1 by default
    */
   reconnectRetryTimeExponent?: number
+  /**
+   * defaults to one day
+   */
+  maxReconnectionTime?: number
 }
 
 /**

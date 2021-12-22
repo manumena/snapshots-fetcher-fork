@@ -199,12 +199,14 @@ export function createCatalystDeploymentStream(
           }
         }
       } catch (e: any) {
+        // we don't log the exception here because createExponentialFallofRetry(logger, options) receives the logger
         components.metrics.increment('dcl_deployments_stream_failure_count', metricsLabels)
         throw e
       }
     },
     retryTime: options.reconnectTime,
     retryTimeExponent: options.reconnectRetryTimeExponent ?? 1.1,
+    maxInterval: options.maxReconnectionTime,
   })
 
   return {
