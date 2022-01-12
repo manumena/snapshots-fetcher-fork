@@ -189,7 +189,9 @@ export async function saveToDisk(
         components.metrics.increment('dcl_content_download_hash_errors_total', metricsLabels)
         // delete the downloaded file if failed
         try {
-          await fs.promises.unlink(tmpFileName)
+          if (await checkFileExists(tmpFileName)) {
+            await fs.promises.unlink(tmpFileName)
+          }
         } catch {}
         throw e
       }
@@ -203,8 +205,10 @@ export async function saveToDisk(
     // move downloaded file to target folder
     await fs.promises.rename(tmpFileName, destinationFilename)
   } finally {
-    // Delete the file async. (But we don't check the result)
-    fs.unlink(tmpFileName, () => {})
+    // Delete the file async.
+    if (await checkFileExists(tmpFileName)) {
+      await fs.promises.unlink(tmpFileName)
+    }
   }
 
   return {}
