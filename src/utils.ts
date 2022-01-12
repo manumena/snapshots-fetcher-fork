@@ -73,18 +73,28 @@ export async function hashStreamV1(content: AsyncGenerator<Uint8Array>) {
 
 export async function assertHash(filename: string, hash: string) {
   if (hash.startsWith('Qm')) {
-    const qmHash = await hashStreamV0(fs.createReadStream(filename) as any)
-    if (qmHash != hash) {
-      throw new Error(
-        `Download error: hashes do not match(expected:${hash} != calculated:${qmHash}) for file ${filename}`
-      )
+    const file = fs.createReadStream(filename)
+    try {
+      const qmHash = await hashStreamV0(file as any)
+      if (qmHash != hash) {
+        throw new Error(
+          `Download error: hashes do not match(expected:${hash} != calculated:${qmHash}) for file ${filename}`
+        )
+      }
+    } finally {
+      file.close()
     }
   } else if (hash.startsWith('ba')) {
-    const baHash = await hashStreamV1(fs.createReadStream(filename) as any)
-    if (baHash != hash) {
-      throw new Error(
-        `Download error: hashes do not match(expected:${hash} != calculated:${baHash}) for file ${filename}`
-      )
+    const file = fs.createReadStream(filename)
+    try {
+      const baHash = await hashStreamV1(file as any)
+      if (baHash != hash) {
+        throw new Error(
+          `Download error: hashes do not match(expected:${hash} != calculated:${baHash}) for file ${filename}`
+        )
+      }
+    } finally {
+      file.close()
     }
   } else {
     throw new Error(`Unknown hashing algorithm for hash: ${hash}`)
