@@ -1,10 +1,12 @@
-import { getDeployedEntitiesStream } from '../src'
 import { processDeploymentsInFile } from '../src/file-processor'
+import { createStorageComponent } from './test-component'
 
 describe('processor', () => {
   it('emits every deployment ignoring empty lines', async () => {
     const r = []
-    const stream = processDeploymentsInFile('test/fixtures/bafkreic2h5lbt3bjljanxmlybase65zmv6lbq3r6ervr6vpmqlb432kgzm')
+    const stream = processDeploymentsInFile('bafkreic2h5lbt3bjljanxmlybase65zmv6lbq3r6ervr6vpmqlb432kgzm', {
+      storage: await createStorageComponent(),
+    })
 
     for await (const deployment of stream) {
       r.push(deployment)
@@ -26,7 +28,10 @@ describe('processor', () => {
   it('fails on unexistent file', async () => {
     await expect(async () => {
       const stream = processDeploymentsInFile(
-        'test/fixtures/bafkreic2h5lbt3bjljanxmlybase65zmv6lbq3r6ervr6vpmqlb432kgzm' + Math.random()
+        'bafkreic2h5lbt3bjljanxmlybase65zmv6lbq3r6ervr6vpmqlb432kgzm' + Math.random(),
+        {
+          storage: await createStorageComponent(),
+        }
       )
       for await (const c of stream) {
         // noop

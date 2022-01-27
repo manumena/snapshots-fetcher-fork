@@ -1,15 +1,12 @@
 import { metricsDefinitions } from './metrics'
 import { RemoteEntityDeployment, SnapshotsFetcherComponents } from './types'
-import { contentServerMetricLabels, fetchJson, saveToDisk } from './utils'
+import { contentServerMetricLabels, fetchJson, saveContentFileToDisk as saveContentFile } from './utils'
 
 export async function getGlobalSnapshot(components: SnapshotsFetcherComponents, server: string, retries: number) {
   const url = new URL(`${server}/snapshot`).toString()
 
   // TODO: validate response
-  return await components.downloadQueue.scheduleJobWithRetries(
-    () => fetchJson(url, components.fetcher),
-    retries
-  )
+  return await components.downloadQueue.scheduleJobWithRetries(() => fetchJson(url, components.fetcher), retries)
 }
 
 export async function* fetchJsonPaginated<T>(
@@ -52,12 +49,12 @@ export function fetchPointerChanges(
 }
 
 export async function saveContentFileToDisk(
-  components: Pick<SnapshotsFetcherComponents, 'metrics'>,
+  components: Pick<SnapshotsFetcherComponents, 'metrics' | 'storage'>,
   server: string,
   hash: string,
   destinationFilename: string
 ) {
   const url = new URL(`${server}/contents/${hash}`).toString()
 
-  return await saveToDisk(components, url, destinationFilename, hash)
+  return saveContentFile(components, url, destinationFilename, hash)
 }

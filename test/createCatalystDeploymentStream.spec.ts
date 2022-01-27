@@ -116,10 +116,11 @@ test('createCatalystDeploymentStream', ({ components, stubComponents }) => {
         logs: components.logs,
         deployer,
         metrics: components.metrics,
+        storage: components.storage,
       },
       {
         contentServer: await components.getBaseUrl(),
-        contentFolder,
+        tmpDownloadFolder: contentFolder,
         pointerChangesWaitTime: 0,
         requestRetryWaitTime: 0,
         requestMaxRetries: 10,

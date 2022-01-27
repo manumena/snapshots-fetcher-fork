@@ -14,7 +14,7 @@ import {
   Server,
   SnapshotsFetcherComponents,
 } from './types'
-import { coerceEntityDeployment, contentServerMetricLabels, pickLeastRecentlyUsedServer, sleep } from './utils'
+import { coerceEntityDeployment, contentServerMetricLabels, sleep, streamToBuffer } from './utils'
 import * as fs from 'fs'
 
 export { metricsDefinitions } from './metrics'
@@ -31,7 +31,7 @@ if (parseInt(process.version.split('.')[0]) < 16) {
  * @public
  */
 export async function downloadEntityAndContentFiles(
-  components: Pick<SnapshotsFetcherComponents, 'fetcher' | 'metrics'>,
+  components: Pick<SnapshotsFetcherComponents, 'fetcher' | 'metrics' | 'storage'>,
   entityId: EntityHash,
   presentInServers: string[],
   serverMapLRU: Map<Server, number>,
@@ -40,7 +40,7 @@ export async function downloadEntityAndContentFiles(
   waitTimeBetweenRetries: number
 ): Promise<unknown> {
   // download entity file
-  const entityFileName = await downloadFileWithRetries(
+  await downloadFileWithRetries(
     components,
     entityId,
     targetFolder,
@@ -50,9 +50,19 @@ export async function downloadEntityAndContentFiles(
     waitTimeBetweenRetries
   )
 
+  const content = await components.storage.retrieve(entityId)
+
+  let contentStream = ''
+
+  if (content) {
+    const stream = await content.asStream()
+    const buffer = await streamToBuffer(stream)
+    contentStream = await buffer.toString()
+  }
+
   const entityMetadata: {
     content?: Array<ContentMapping>
-  } = JSON.parse((await fs.promises.readFile(entityFileName)).toString())
+  } = JSON.parse(contentStream)
 
   if (entityMetadata.content) {
     await Promise.all(
@@ -103,10 +113,10 @@ export async function* getDeployedEntitiesStream(
   //    in the range we are interested (>= genesisTimestamp)
   if (hash && lastIncludedDeploymentTimestamp && lastIncludedDeploymentTimestamp > genesisTimestamp) {
     // 2.1. download the snapshot file if needed
-    const snapshotFilename = await downloadFileWithRetries(
+    await downloadFileWithRetries(
       components,
       hash,
-      options.contentFolder,
+      options.tmpDownloadFolder,
       [options.contentServer],
       new Map(),
       options.requestMaxRetries,
@@ -114,7 +124,7 @@ export async function* getDeployedEntitiesStream(
     )
 
     // 2.2. open the snapshot file and process line by line
-    const deploymentsInFile = processDeploymentsInFile(snapshotFilename)
+    const deploymentsInFile = processDeploymentsInFile(hash, components)
     for await (const rawDeployment of deploymentsInFile) {
       const deployment = coerceEntityDeployment(rawDeployment)
       if (!deployment) continue

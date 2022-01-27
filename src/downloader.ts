@@ -1,21 +1,21 @@
 import { Path, SnapshotsFetcherComponents } from './types'
 import * as path from 'path'
 import { saveContentFileToDisk } from './client'
-import { checkFileExists, pickLeastRecentlyUsedServer, sleep } from './utils'
+import { pickLeastRecentlyUsedServer, sleep } from './utils'
 
 const downloadFileJobsMap = new Map<Path, ReturnType<typeof downloadFileWithRetries>>()
 
 async function downloadJob(
-  components: Pick<SnapshotsFetcherComponents, 'metrics'>,
+  components: Pick<SnapshotsFetcherComponents, 'metrics' | 'storage'>,
   hashToDownload: string,
   finalFileName: string,
   presentInServers: string[],
   serverMapLRU: Map<string, number>,
   maxRetries: number,
   waitTimeBetweenRetries: number
-): Promise<string> {
+): Promise<void> {
   // cancel early if the file is already downloaded
-  if (await checkFileExists(finalFileName)) return finalFileName
+  if (await components.storage.exist(hashToDownload)) return
 
   let retries = 0
 
@@ -27,7 +27,7 @@ async function downloadJob(
       await downloadContentFile(components, hashToDownload, finalFileName, serverToUse)
       components.metrics.observe('dcl_content_download_job_succeed_retries', {}, retries)
 
-      return finalFileName
+      return
     } catch (e: any) {
       if (retries < maxRetries) {
         await sleep(waitTimeBetweenRetries)
@@ -44,15 +44,15 @@ async function downloadJob(
  * being downloaded
  */
 export async function downloadFileWithRetries(
-  components: Pick<SnapshotsFetcherComponents, 'metrics'>,
+  components: Pick<SnapshotsFetcherComponents, 'metrics' | 'storage'>,
   hashToDownload: string,
-  targetFolder: string,
+  targetTempFolder: string,
   presentInServers: string[],
   serverMapLRU: Map<string, number>,
   maxRetries: number,
   waitTimeBetweenRetries: number
-): Promise<string> {
-  const finalFileName = path.resolve(targetFolder, hashToDownload)
+): Promise<void> {
+  const finalFileName = path.resolve(targetTempFolder, hashToDownload)
 
   if (downloadFileJobsMap.has(finalFileName)) {
     return downloadFileJobsMap.get(finalFileName)!
@@ -70,19 +70,20 @@ export async function downloadFileWithRetries(
     )
     downloadFileJobsMap.set(finalFileName, downloadWithRetriesJob)
 
-    return await downloadWithRetriesJob
+    await downloadWithRetriesJob
+    return
   } finally {
     downloadFileJobsMap.delete(finalFileName)
   }
 }
 
 async function downloadContentFile(
-  components: Pick<SnapshotsFetcherComponents, 'metrics'>,
+  components: Pick<SnapshotsFetcherComponents, 'metrics' | 'storage'>,
   hash: string,
   finalFileName: string,
   serverToUse: string
-) {
-  if (!(await checkFileExists(finalFileName))) {
-    await saveContentFileToDisk(components, serverToUse, hash, finalFileName)
+): Promise<void> {
+  if (!(await components.storage.exist(finalFileName))) {
+    return saveContentFileToDisk(components, serverToUse, hash, finalFileName)
   }
 }

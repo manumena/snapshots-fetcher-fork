@@ -4,9 +4,12 @@
 
 ```ts
 
+/// <reference types="node" />
+
 import { IFetchComponent } from '@well-known-components/http-server';
 import { ILoggerComponent } from '@well-known-components/interfaces';
 import { IMetricsComponent } from '@well-known-components/interfaces';
+import { Readable } from 'stream';
 
 // Warning: (ae-forgotten-export) The symbol "SnapshotsFetcherComponents" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "CatalystDeploymentStreamOptions" needs to be exported by the entry point index.d.ts
@@ -22,7 +25,7 @@ export function createCatalystDeploymentStream(components: SnapshotsFetcherCompo
 // Warning: (ae-forgotten-export) The symbol "Server" needs to be exported by the entry point index.d.ts
 //
 // @public
-export function downloadEntityAndContentFiles(components: Pick<SnapshotsFetcherComponents, 'fetcher' | 'metrics'>, entityId: EntityHash, presentInServers: string[], serverMapLRU: Map<Server, number>, targetFolder: string, maxRetries: number, waitTimeBetweenRetries: number): Promise<unknown>;
+export function downloadEntityAndContentFiles(components: Pick<SnapshotsFetcherComponents, 'fetcher' | 'metrics' | 'storage'>, entityId: EntityHash, presentInServers: string[], serverMapLRU: Map<Server, number>, targetFolder: string, maxRetries: number, waitTimeBetweenRetries: number): Promise<unknown>;
 
 // Warning: (ae-forgotten-export) The symbol "DeployedEntityStreamOptions" needs to be exported by the entry point index.d.ts
 // Warning: (ae-forgotten-export) The symbol "RemoteEntityDeployment" needs to be exported by the entry point index.d.ts
@@ -35,7 +38,7 @@ export const metricsDefinitions: IMetricsComponent<"dcl_content_download_bytes_t
 
 // Warnings were encountered during analysis:
 //
-// src/index.ts:169:46 - (ae-forgotten-export) The symbol "IDeployerComponent" needs to be exported by the entry point index.d.ts
+// src/index.ts:179:46 - (ae-forgotten-export) The symbol "IDeployerComponent" needs to be exported by the entry point index.d.ts
 
 // (No @packageDocumentation comment for this package)
 

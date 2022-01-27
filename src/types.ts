@@ -3,6 +3,7 @@ import { ILoggerComponent, IMetricsComponent } from '@well-known-components/inte
 import { ExponentialFallofRetryComponent } from './exponential-fallof-retry'
 import { IJobQueue } from './job-queue-port'
 import { metricsDefinitions } from './metrics'
+import { Readable } from 'stream'
 
 /**
  * @public
@@ -33,6 +34,7 @@ export type SnapshotsFetcherComponents = {
   fetcher: IFetchComponent
   downloadQueue: IJobQueue
   logs: ILoggerComponent
+  storage: ContentStorage
 }
 
 /**
@@ -72,7 +74,7 @@ export type DownloadEntitiesOptions = {
 export type DeployedEntityStreamOptions = {
   contentServer: string
   fromTimestamp?: number
-  contentFolder: string
+  tmpDownloadFolder: string
 
   // configure pointer-changes polling
   pointerChangesWaitTime: number
@@ -127,4 +129,16 @@ export type EntityDeployment = {
   entityType: string
   content: Array<ContentMapping>
   auditInfo: { authChain: any[] }
+}
+
+export type ContentEncoding = 'gzip'
+
+export interface ContentStorage {
+  exist(ids: string): Promise<boolean>
+  storeStream(id: string, fileStream: Readable): Promise<void>
+  retrieve(id: string): Promise<ContentItem | undefined>
+}
+
+export interface ContentItem {
+  asStream(): Promise<Readable>
 }
