@@ -95,7 +95,7 @@ export async function* getDeployedEntitiesStream(
 ): AsyncIterable<RemoteEntityDeployment> {
   const logs = components.logs.getLogger(`getDeployedEntitiesStream(${options.contentServer})`)
   // the minimum timestamp we are looking for
-  const genesisTimestamp = options.fromTimestamp || 0
+  const genesisTimestamp = 0
 
   // the greatest timestamp we processed
   let greatestProcessedTimestamp = genesisTimestamp
@@ -103,52 +103,52 @@ export async function* getDeployedEntitiesStream(
   const metricLabels = contentServerMetricLabels(options.contentServer)
 
   // 1. get the hash of the latest snapshot in the remote server, retry 10 times
-  const { hash, lastIncludedDeploymentTimestamp } = await getGlobalSnapshot(
-    components,
-    options.contentServer,
-    options.requestMaxRetries
-  )
+  // const { hash, lastIncludedDeploymentTimestamp } = await getGlobalSnapshot(
+  //   components,
+  //   options.contentServer,
+  //   options.requestMaxRetries
+  // )
 
   // 2. download the snapshot file if it contains deployments
   //    in the range we are interested (>= genesisTimestamp)
-  if (hash && lastIncludedDeploymentTimestamp && lastIncludedDeploymentTimestamp > genesisTimestamp) {
-    try {
-      // 2.1. download the snapshot file if needed
-      await downloadFileWithRetries(
-        components,
-        hash,
-        options.tmpDownloadFolder,
-        [options.contentServer],
-        new Map(),
-        options.requestMaxRetries,
-        options.requestRetryWaitTime
-      )
+  // if (hash && lastIncludedDeploymentTimestamp && lastIncludedDeploymentTimestamp > genesisTimestamp) {
+  //   try {
+  //     // 2.1. download the snapshot file if needed
+  //     await downloadFileWithRetries(
+  //       components,
+  //       hash,
+  //       options.tmpDownloadFolder,
+  //       [options.contentServer],
+  //       new Map(),
+  //       options.requestMaxRetries,
+  //       options.requestRetryWaitTime
+  //     )
 
-      // 2.2. open the snapshot file and process line by line
-      const deploymentsInFile = processDeploymentsInFile(hash, components)
-      for await (const rawDeployment of deploymentsInFile) {
-        const deployment = coerceEntityDeployment(rawDeployment)
-        if (!deployment) continue
-        // selectively ignore deployments by localTimestamp
-        if (deployment.localTimestamp >= genesisTimestamp) {
-          components.metrics.increment('dcl_entities_deployments_processed_total', metricLabels)
-          yield deployment
-        }
-        // update greatest processed timestamp
-        if (deployment.localTimestamp > greatestProcessedTimestamp) {
-          greatestProcessedTimestamp = deployment.localTimestamp
-        }
-      }
-    } finally {
-      if (options.deleteSnapshotAfterUsage !== false) {
-        try {
-          await components.storage.delete([hash])
-        } catch (err: any) {
-          logs.error(err)
-        }
-      }
-    }
-  }
+  //     // 2.2. open the snapshot file and process line by line
+  //     const deploymentsInFile = processDeploymentsInFile(hash, components)
+  //     for await (const rawDeployment of deploymentsInFile) {
+  //       const deployment = coerceEntityDeployment(rawDeployment)
+  //       if (!deployment) continue
+  //       // selectively ignore deployments by localTimestamp
+  //       if (deployment.localTimestamp >= genesisTimestamp) {
+  //         components.metrics.increment('dcl_entities_deployments_processed_total', metricLabels)
+  //         yield deployment
+  //       }
+  //       // update greatest processed timestamp
+  //       if (deployment.localTimestamp > greatestProcessedTimestamp) {
+  //         greatestProcessedTimestamp = deployment.localTimestamp
+  //       }
+  //     }
+  //   } finally {
+  //     if (options.deleteSnapshotAfterUsage !== false) {
+  //       try {
+  //         await components.storage.delete([hash])
+  //       } catch (err: any) {
+  //         logs.error(err)
+  //       }
+  //     }
+  //   }
+  // }
 
   // 3. fetch the /pointer-changes of the remote server using the last timestamp from the previous step
   do {
