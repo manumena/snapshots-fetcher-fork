@@ -5,7 +5,7 @@ updates:
   schedule:
     interval: weekly
     day: monday
-    time: "09:00"
+    time: "15:22"
     timezone: "America/Buenos_Aires"
   allow:
     - dependency-name: "@dcl/*"
@@ -13,3 +13,6 @@ updates:
     - dependency-name: "@well-known-components/*"
     - dependency-name: "dcl-*"
   versioning-strategy: auto
+  commit-message:
+      prefix: "chore: "
+
